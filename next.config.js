@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
   experimental: {
     // Disable any experimental features that might be causing issues
     serverActions: {
