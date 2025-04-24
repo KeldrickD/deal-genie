@@ -4,7 +4,9 @@ const nextConfig = {
   swcMinify: true,
   experimental: {
     // Disable any experimental features that might be causing issues
-    serverActions: true,
+    serverActions: {
+      allowedOrigins: ["localhost:3000", "localhost:3001", "localhost:3002"]
+    }
   },
   // Handle build-time environment variables
   env: {
@@ -12,4 +14,4 @@ const nextConfig = {
   }
 };
 
-export default nextConfig; 
+module.exports = nextConfig; 
