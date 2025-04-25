@@ -23,7 +23,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'GenieOS Features – AI Real Estate OS',
-  description: 'Discover GenieOS's AI-powered deal analysis, offer generation, and market insights.',
+  description: 'Discover GenieOS&apos;s AI-powered deal analysis, offer generation, and market insights.',
   openGraph: {
     title: 'GenieOS Features',
     description: 'AI-driven property analyzer, offer engine, Smart Scout & more.',

@@ -37,23 +37,24 @@ export async function GET(req: NextRequest) {
     const interRegular = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Regular.ttf');
     const interBold = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Bold.ttf');
 
+    // Define style object separately
+    const styles = {
+      height: '100%',
+      width: '100%',
+      display: 'flex',
+      flexDirection: 'column' as const, // Explicitly type if needed
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      backgroundColor: '#111827',
+      color: 'white',
+      padding: '60px',
+      fontFamily: '"Inter"',
+      textAlign: 'center' as const,
+    };
+
     return new ImageResponse(
       (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center', // Centered items
-            justifyContent: 'center',
-            backgroundColor: '#111827',
-            color: 'white',
-            padding: '60px',
-            fontFamily: '"Inter"',
-            textAlign: 'center' // Center text
-          }}
-        >
+        <div style={styles}> 
           <div style={{ fontSize: 60, fontWeight: 700, marginBottom: 30 }}>{title}</div>
           <div style={{ fontSize: 32, opacity: 0.8, marginBottom: 40 }}>{subtitle}</div>
           <div style={{ fontSize: 24, opacity: 0.6 }}>{domain}</div>
