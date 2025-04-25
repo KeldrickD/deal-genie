@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase';
 import { cookies } from 'next/headers';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: Request) {
   try {
@@ -13,14 +13,11 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${requestUrl.origin}/login?error=Missing authentication code`);
     }
     
-    // Create cookie store
-    const cookieStore = cookies();
-    
     // Create a response to store the cookies
     const response = NextResponse.redirect(`${requestUrl.origin}${next}`);
     
     // Create a Supabase client using the server component
-    const supabase = createServerClient();
+    const supabase = createClient();
     
     // Exchange code for session
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);

@@ -157,13 +157,13 @@ Only return the valid JSON object with no other text.`;
             };
         }
 
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
         console.error('[AI Action] OpenAI API Error:', error);
         // Avoid leaking detailed error messages potentially containing keys
         let errorMessage = "Failed to generate AI analysis due to an API error.";
-        if (error.response?.status === 401) {
+        if ((error as any).response?.status === 401) {
              errorMessage = "Authentication error with OpenAI API. Check your API key.";
-        } else if (error.message) {
+        } else if ((error as Error).message) {
             // Be cautious about exposing internal error messages
             // errorMessage += ` (${error.message.substring(0, 100)}...)`;
         }
@@ -228,7 +228,7 @@ export async function analyzeBatchProperties(
         );
         
         return { results };
-    } catch (error: any) {
+    } catch (error: Error | unknown) {
         console.error('[AI Batch Action] Error processing batch:', error);
         return { 
             error: "Failed to process property batch. Please try again."
@@ -360,7 +360,7 @@ async function analyzeProperty(
 // Add a new function to incorporate user preferences into property analysis
 export async function analyzePropertyWithPreferences(
   address: string,
-  userPreferences?: any
+  userPreferences?: Record<string, unknown>
 ): Promise<{ success: boolean; data?: StructuredAnalysis; error?: string }> {
   try {
     // Basic analysis without preferences

@@ -1,6 +1,4 @@
 import { NextResponse } from 'next/server';
-import openai from '@/lib/openai';
-import { createServerClient } from '@/lib/supabase';
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +14,7 @@ export async function POST(request: Request) {
     const offerEmail = await generateOfferEmailWithAI(propertyAnalysis, userProfile, offerAmount, sellerContact);
     
     // Generate PDF (would use react-pdf or similar in production)
-    const pdfUrl = await generateOfferPDF(propertyAnalysis, offerAmount);
+    const pdfUrl = await generateOfferPDF(propertyAnalysis);
 
     // Save to database (if user is authenticated)
     // const supabase = createServerClient();
@@ -51,6 +49,8 @@ async function generateOfferEmailWithAI(
   offerAmount: number,
   sellerContact: any
 ) {
+  // Define prompt for reference but don't use it directly in this demo implementation
+  /* 
   const prompt = `
 You are a professional real estate investor writing an offer email to a property seller.
 Generate a professional, concise offer email based on the following details:
@@ -74,6 +74,7 @@ The email should be professional, direct, and include:
 
 Keep it concise and direct, no more than 4 paragraphs.
 `;
+  */
 
   try {
     // Call OpenAI API
@@ -116,7 +117,7 @@ ${userProfile?.phone || '(555) 123-4567'}
 }
 
 // Mock function to generate a PDF (would use react-pdf or similar in production)
-async function generateOfferPDF(propertyAnalysis: any, offerAmount: number) {
+async function generateOfferPDF(propertyAnalysis: any) {
   // In a real implementation, we would generate a PDF and upload it to storage
   // For now, return a mock URL
   return `https://storage.example.com/offers/${Date.now()}_${propertyAnalysis.propertyAddress.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;

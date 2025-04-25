@@ -1,9 +1,4 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import { createServerClient } from '@supabase/ssr';
-import { getSession } from '@/lib/auth';
-import { analyzePropertyWithPreferences } from '@/app/ai/actions';
-import type { Database } from '@/types/supabase';
 import { OpenAI } from 'openai';
 import rentcast from '@/lib/rentcast';
 import { analysisCache } from '@/lib/cache';
@@ -172,155 +167,25 @@ Use typical cap rates and multipliers for this type of property.
   return basePrompt;
 }
 
-// Mock function to fetch property data
-// In production, this would call a real property data API
-async function fetchPropertyData(address: string) {
-  // Simulate API call delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // Mock data for demonstration - would come from a real API
-  return {
-    address,
-    bedrooms: 3,
-    bathrooms: 2,
-    squareFeet: 1800,
-    yearBuilt: 2005,
-    lotSize: 7500,
-    lastSoldPrice: 220000,
-    lastSoldDate: '2020-06-15',
-    zestimate: 285000,
-    comparables: [
-      { address: '123 Nearby St', soldPrice: 270000, squareFeet: 1750, bedrooms: 3, bathrooms: 2 },
-      { address: '456 Close Ave', soldPrice: 282000, squareFeet: 1900, bedrooms: 3, bathrooms: 2.5 },
-      { address: '789 Similar Ln', soldPrice: 265000, squareFeet: 1700, bedrooms: 3, bathrooms: 2 },
-    ],
-    rentalEstimate: {
-      monthlyRent: 1800,
-      rentRange: { low: 1650, high: 1950 },
-    },
-    neighborhood: {
-      name: 'Oak Hills',
-      avgDaysOnMarket: 24,
-      medianSoldPrice: 275000,
-      schoolRating: 8,
-      crimeRating: 'Low',
-    }
-  };
-}
-
-// Function to analyze property using OpenAI
-async function analyzePropertyWithAI(propertyData: any, userStrategy: string = 'BRRRR') {
-  const prompt = `
-You are a top-tier real estate investment analyst specializing in ${userStrategy} strategy.
-Analyze the following property data and provide an investment recommendation:
-
-Property Details:
-- Address: ${propertyData.address}
-- Bedrooms: ${propertyData.bedrooms}
-- Bathrooms: ${propertyData.bathrooms}
-- Square Feet: ${propertyData.squareFeet}
-- Year Built: ${propertyData.yearBuilt}
-- Lot Size: ${propertyData.lotSize}
-- Last Sold Price: $${propertyData.lastSoldPrice}
-- Last Sold Date: ${propertyData.lastSoldDate}
-- Current Estimate: $${propertyData.zestimate}
-
-Rental Information:
-- Estimated Monthly Rent: $${propertyData.rentalEstimate.monthlyRent}
-- Rent Range: $${propertyData.rentalEstimate.rentRange.low} - $${propertyData.rentalEstimate.rentRange.high}
-
-Neighborhood Information:
-- Avg Days on Market: ${propertyData.neighborhood.avgDaysOnMarket}
-- Median Sold Price: $${propertyData.neighborhood.medianSoldPrice}
-- School Rating: ${propertyData.neighborhood.schoolRating}/10
-- Crime Rating: ${propertyData.neighborhood.crimeRating}
-
-Comparable Properties:
-${propertyData.comparables.map((comp: any) => 
-  `- ${comp.address}: $${comp.soldPrice}, ${comp.squareFeet} sq ft, ${comp.bedrooms}bd/${comp.bathrooms}ba`
-).join('\n')}
-
-Based on this data, provide the following in JSON format:
-1. ARV (After Repair Value)
-2. Repair Cost Range (low and high estimates)
-3. Cash-on-Cash ROI percentage
-4. Flip Potential score (0-100)
-5. Rental Potential score (0-100)
-6. MAO (Maximum Allowable Offer)
-7. Recommendation ("GO" or "NO_GO")
-8. Short reasoning paragraph
-9. Confidence level (0-100)
-`;
-
-  try {
-    // Call OpenAI API
-    // In a real implementation, we would use function calling for structured output
-    // For now, we'll return mock data since this is a demo
-    
-    // const completion = await openai.chat.completions.create({
-    //   messages: [
-    //     { role: "system", content: "You are a real estate investment analysis AI." },
-    //     { role: "user", content: prompt }
-    //   ],
-    //   model: "gpt-4",
-    // });
-    
-    // const responseText = completion.choices[0].message.content;
-    // Parsing logic would go here...
-
-    // For demo purposes, return mock analysis
-    return {
-      arv: 285000,
-      repairCostLow: 35000,
-      repairCostHigh: 42000,
-      cashOnCashROI: 18.3,
-      flipPotential: 76,
-      rentalPotential: 85,
-      mao: 157500,
-      recommendation: 'GO',
-      reasoning: 'This property shows strong potential as a BRRRR investment with an attractive ARV based on recent comps and neighborhood trends. Repairs needed are moderate and the expected rental income provides a healthy cash flow. The location has good school ratings and low crime, which should maintain tenant demand and property appreciation.',
-      confidenceLevel: 82,
-      _timestamp: new Date().toISOString()
-    };
-  } catch (error) {
-    console.error('OpenAI API error:', error);
-    throw new Error('Failed to analyze property with AI');
-  }
-}
-
-// Fallback function if web-search isn't available
+// Fallback analysis when web search isn't available
 async function getAnalysisWithoutWebSearch(rentalData: any, address: string) {
-  try {
-    const analysisResponse = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `
-You are a real-estate AI analyst. 
-Given rental data only (no comps available), estimate:
-  1. Likely ARV range based on rental data
-  2. Repair cost estimate range
-  3. Suggested MAO (Maximum Allowable Offer) range
-  4. Estimated 12-month cash-on-cash ROI if rented
-  5. Go/No-Go decision with one-sentence justification
+  const analysisResponse = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "system",
+        content: `You are a real-estate AI analyst. I'm missing comparable sales data, but I have some rental estimates for ${address}. 
+        Based on just the rental data, provide a general analysis of this property's investment potential. 
+        Estimate ARV using income approach and typical cap rates for residential properties.
+        Include:
+        1. Estimated property value range
+        2. Estimated monthly cash flow (if purchased at estimated value)
+        3. Potential ROI range
+        4. Whether this seems like a worthwhile investment`
+      },
+      { role: "user", content: `Rental Data:\n${JSON.stringify(rentalData)}\n` },
+    ],
+  });
 
-IMPORTANT: Comparable sales data is unavailable.
-Use rental data to estimate property values using income approach.
-Use typical cap rates and multipliers for this type of property.
-Clearly indicate that your estimates are based on limited data.
-`,
-        },
-        { 
-          role: "user", 
-          content: `Rental Data:\n${JSON.stringify(rentalData)}\n\nProperty Address: ${address}\n` 
-        },
-      ],
-    });
-
-    return analysisResponse.choices[0].message.content || "";
-  } catch (error) {
-    console.error("Fallback analysis error:", error);
-    throw error;
-  }
+  return analysisResponse.choices[0].message.content || "Unable to analyze property with limited data.";
 } 

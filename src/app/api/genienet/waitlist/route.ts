@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Insert the waitlist entry
-    const { data: newEntry, error: insertError } = await supabase
+    const { data: _newEntry, error: insertError } = await supabase
       .from('genienet_waitlist')
       .insert({
         email,
