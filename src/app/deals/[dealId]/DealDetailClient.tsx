@@ -35,6 +35,10 @@ import { cn } from '@/lib/utils';
 import { CalendarIcon, Pencil, Trash, CheckCircle, Circle } from 'lucide-react';
 
 import DealOfferGenerator from './offerGenerator';
+import DealAnalysisWrapper from './DealAnalysisWrapper';
+import UpgradePromptModal from '@/components/UpgradePromptModal';
+import { useUsageLimit } from '@/hooks/useUsageLimit';
+import { FEATURE_NAMES } from '@/lib/config';
 
 // Type definitions
 interface Deadline {
@@ -101,6 +105,13 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
 
   // Use the supabase client from AuthContext instead of creating a new one
   const supabaseClient = supabase;
+
+  const { 
+    showUpgradePrompt, 
+    promptFeature, 
+    closeUpgradePrompt, 
+    enforceLimit 
+  } = useUsageLimit();
 
   // Add error handling
   useEffect(() => {
@@ -407,38 +418,45 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
 
   // Function to trigger AI Offer generation
   const handleGenerateOffer = async () => {
-    setOfferTerms(null);
-    setOfferError(null);
-    setIsGeneratingOffer(true);
-
-    startTransition(async () => {
+    // Track and enforce usage limit for offer generation
+    const limitResult = await enforceLimit(FEATURE_NAMES.OFFER, {
+      context: 'deal_offer',
+      dealId
+    }, { showPrompt: true });
+    
+    // Only proceed if we haven't hit usage limits
+    if (limitResult.success) {
+      setIsGeneratingOffer(true);
+      
       try {
-        const inputData = {
-          deal_name: deal.deal_name,
-          address: deal.address,
-          purchase_price: deal.purchase_price,
-          arv: deal.arv,
-          rehab_cost: deal.rehab_cost,
-        };
-
-        const result = await generateOfferTermsAction(inputData);
-
-        if (result.error) {
-          setOfferError(result.error);
-          toast.error(result.error);
-        } else {
-          setOfferTerms(result.offerTerms ?? null);
-          toast.success("AI offer terms generated!");
+        if (!structuredAnalysis) {
+          toast.error('Please analyze the deal first');
+          return;
         }
-      } catch (err) {
-        console.error("Error calling offer terms action:", err);
-        const errorMsg = err instanceof Error ? err.message : "An unknown error occurred.";
-        setOfferError(errorMsg);
-        toast.error(`Failed to generate offer terms: ${errorMsg}`);
+        
+        const inputData = {
+          address: deal?.address || '',
+          purchase_price: deal?.purchase_price || 0,
+          arv: structuredAnalysis.arv,
+          rehab_cost: structuredAnalysis.repairCostLow
+        };
+        
+        const result = await generateOfferTermsAction(inputData);
+        
+        if (result.error) {
+          toast.error(result.error);
+          setOfferError(result.error);
+        } else {
+          setOfferTerms(result.offerTerms);
+        }
+      } catch (error) {
+        console.error('Error generating offer terms:', error);
+        setOfferError('Failed to generate offer terms');
+        toast.error('Failed to generate offer terms');
       } finally {
         setIsGeneratingOffer(false);
       }
-    });
+    }
   };
 
   // Calculate values from deal data
@@ -481,6 +499,18 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
   
   return (
     <div className="container mx-auto p-4">
+      {/* Upgrade Modal */}
+      {showUpgradePrompt && promptFeature && (
+        <UpgradePromptModal
+          isOpen={showUpgradePrompt}
+          onClose={closeUpgradePrompt}
+          feature={promptFeature.feature}
+          currentUsage={promptFeature.currentUsage}
+          limit={promptFeature.limit}
+          featureDisplayName={promptFeature.featureDisplayName}
+        />
+      )}
+      
       <Tabs defaultValue="details">
         <TabsList className="mb-4">
           <TabsTrigger value="details">Deal Details</TabsTrigger>
@@ -632,224 +662,146 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
         </TabsContent>
         
         <TabsContent value="analysis">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>AI Deal Analysis</CardTitle>
-              </div>
-              <CardDescription>
-                Get AI insights on this property deal
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!structuredAnalysis && !isAnalyzing && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">Generate an analysis of this deal based on the provided data.</p>
-                  <div className="flex space-x-2 mb-4">
-                    <Button onClick={handleGenerateAnalysis} className="flex-1" disabled={isAnalyzing}>
-                      {isAnalyzing ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        'Analyze Deal'
-                      )}
-                    </Button>
-                    <Button onClick={handleGenerateOffer} className="flex-1" disabled={isGeneratingOffer || !structuredAnalysis}>
-                      {isGeneratingOffer ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Generating...
-                        </>
-                      ) : (
-                        'Generate Offer'
-                      )}
-                    </Button>
-                    <Link 
-                      href={`/exit-strategy?purchasePrice=${deal?.purchase_price || ''}&rehabCost=${deal?.rehab_cost || ''}&arv=${deal?.arv || ''}&estimatedRent=${(deal?.noi || 0) / 12}&propertyType=${deal?.property_type || ''}`}
-                      className="flex-1"
-                    >
-                      <Button className="w-full" variant="outline">
-                        Exit Strategy
-                      </Button>
-                    </Link>
+          <DealAnalysisWrapper
+            onAnalyze={handleGenerateAnalysis}
+            isAnalyzing={isAnalyzing}
+            hasAnalysis={!!structuredAnalysis}
+          >
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>AI Deal Analysis</CardTitle>
+                </div>
+                <CardDescription>
+                  Get AI insights on this property deal
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isAnalyzing && (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
+                    <p>Analyzing deal data...</p>
                   </div>
-                </div>
-              )}
-              
-              {isAnalyzing && (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
-                  <p>Analyzing deal data...</p>
-                </div>
-              )}
-              
-              {structuredAnalysis && (
-                <div className="space-y-6">
-                  {/* Analysis Header with Recommendation */}
-                  <div className="flex items-center justify-between mb-2 pb-4 border-b">
-                    <div className="flex items-center">
-                      <div className={`h-4 w-4 rounded-full mr-2 ${
-                        structuredAnalysis.recommendation === 'GO' ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                      <span className="font-medium">
-                        AI recommends: {structuredAnalysis.recommendation}
+                )}
+                
+                {structuredAnalysis && (
+                  <div className="space-y-6">
+                    {/* Analysis Header with Recommendation */}
+                    <div className="flex items-center justify-between mb-2 pb-4 border-b">
+                      <div className="flex items-center">
+                        <div className={`h-4 w-4 rounded-full mr-2 ${
+                          structuredAnalysis.recommendation === 'GO' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
+                        <span className="font-medium">
+                          AI recommends: {structuredAnalysis.recommendation}
+                        </span>
+                      </div>
+                      <span className="text-sm">
+                        Confidence: {structuredAnalysis.confidenceLevel}%
                       </span>
                     </div>
-                    <span className="text-sm">
-                      Confidence: {structuredAnalysis.confidenceLevel}%
-                    </span>
-                  </div>
-                  
-                  {/* Financial Metrics */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-3 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-500">ARV</p>
-                      <p className="font-bold text-lg">{formatCurrency(structuredAnalysis.arv)}</p>
-                    </div>
-                    <div className="p-3 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-500">Rehab Cost</p>
-                      <p className="font-bold text-lg">
-                        {formatCurrency(structuredAnalysis.repairCostLow)} - {formatCurrency(structuredAnalysis.repairCostHigh)}
-                      </p>
-                    </div>
-                    <div className="p-3 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-500">MAO</p>
-                      <p className="font-bold text-lg">{formatCurrency(structuredAnalysis.mao)}</p>
-                    </div>
-                    <div className="p-3 border border-gray-200 rounded-md">
-                      <p className="text-sm text-gray-500">Cash-on-Cash ROI</p>
-                      <p className="font-bold text-lg">{structuredAnalysis.cashOnCashROI}%</p>
-                    </div>
-                  </div>
-                  
-                  {/* Flip vs Rental Potential */}
-                  <div>
-                    <h4 className="font-semibold mb-2">Deal Potential</h4>
-                    <div className="flex flex-col md:flex-row gap-4">
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm font-medium">Flip Potential</span>
-                          <span className="text-sm font-medium">{structuredAnalysis.flipPotential}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-indigo-600 h-2 rounded-full" 
-                            style={{ width: `${structuredAnalysis.flipPotential}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between mb-1">
-                          <span className="text-sm font-medium">Rental Potential</span>
-                          <span className="text-sm font-medium">{structuredAnalysis.rentalPotential}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div 
-                            className="bg-purple-600 h-2 rounded-full" 
-                            style={{ width: `${structuredAnalysis.rentalPotential}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Analysis Reasoning */}
-                  <div>
-                    <h4 className="font-semibold mb-2">Analysis</h4>
-                    <p className="text-gray-700">{structuredAnalysis.reasoning}</p>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-4">
-                    <Button onClick={handleGenerateAnalysis} variant="outline" size="sm">
-                      Regenerate Analysis
-                    </Button>
                     
-                    <Button 
-                      onClick={() => {
-                        // Copy analysis to clipboard
-                        const analysisText = `
-Deal Analysis for ${deal.deal_name || deal.address}
---------------------------------------------------
-ARV: ${formatCurrency(structuredAnalysis.arv)}
-Repair Cost: ${formatCurrency(structuredAnalysis.repairCostLow)} - ${formatCurrency(structuredAnalysis.repairCostHigh)}
-MAO: ${formatCurrency(structuredAnalysis.mao)}
-Cash-on-Cash ROI: ${structuredAnalysis.cashOnCashROI}%
-Flip Potential: ${structuredAnalysis.flipPotential}%
-Rental Potential: ${structuredAnalysis.rentalPotential}%
-Recommendation: ${structuredAnalysis.recommendation} (Confidence: ${structuredAnalysis.confidenceLevel}%)
-
-Analysis:
-${structuredAnalysis.reasoning}
-                        `;
-                        navigator.clipboard.writeText(analysisText);
-                        toast.success("Analysis copied to clipboard");
-                      }}
-                      variant="outline" 
-                      size="sm"
-                    >
-                      Copy to Clipboard
-                    </Button>
+                    {/* Financial Metrics */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <h4 className="font-semibold mb-2">Projected Returns</h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-500">ARV</span>
+                            <span className="font-medium">{formatCurrency(structuredAnalysis.arv)}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-500">Repair Cost</span>
+                            <span className="font-medium">{formatCurrency(structuredAnalysis.repairCostLow)} - {formatCurrency(structuredAnalysis.repairCostHigh)}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-500">Max Offer</span>
+                            <span className="font-medium">{formatCurrency(structuredAnalysis.mao)}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-sm text-gray-500">Cash-on-Cash ROI</span>
+                            <span className="font-medium">{structuredAnalysis.cashOnCashROI}%</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-semibold mb-2">Deal Potential</h4>
+                        <div className="flex flex-col md:flex-row gap-4">
+                          <div className="flex-1">
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium">Flip Potential</span>
+                              <span className="text-sm font-medium">{structuredAnalysis.flipPotential}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-indigo-600 h-2 rounded-full" 
+                                style={{ width: `${structuredAnalysis.flipPotential}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex justify-between mb-1">
+                              <span className="text-sm font-medium">Rental Potential</span>
+                              <span className="text-sm font-medium">{structuredAnalysis.rentalPotential}%</span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-purple-600 h-2 rounded-full" 
+                                style={{ width: `${structuredAnalysis.rentalPotential}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Analysis Reasoning */}
+                    <div>
+                      <h4 className="font-semibold mb-2">Analysis</h4>
+                      <p className="text-gray-700">{structuredAnalysis.reasoning}</p>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-3 pt-4">
+                      <Button onClick={handleGenerateOffer} className="flex-1" disabled={isGeneratingOffer}>
+                        {isGeneratingOffer ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          'Generate Offer'
+                        )}
+                      </Button>
+                      
+                      <Link 
+                        href={`/exit-strategy?purchasePrice=${deal?.purchase_price || ''}&rehabCost=${deal?.rehab_cost || ''}&arv=${deal?.arv || ''}&estimatedRent=${(deal?.noi || 0) / 12}&propertyType=${deal?.property_type || ''}`}
+                        className="flex-1"
+                      >
+                        <Button className="w-full" variant="outline">
+                          Exit Strategy
+                        </Button>
+                      </Link>
+                    </div>
+                    
+                    {offerError && (
+                      <div className="mt-4 p-3 bg-red-50 text-red-700 rounded-md">
+                        <p>{offerError}</p>
+                      </div>
+                    )}
+                    
+                    {offerTerms && (
+                      <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                        <h4 className="font-medium mb-2">Generated Offer Terms:</h4>
+                        <p className="whitespace-pre-line">{offerTerms}</p>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-              
-              {analysisError && (
-                <div className="bg-red-50 p-4 rounded-md text-red-800 mt-4">
-                  <p className="font-bold">Error generating analysis:</p>
-                  <p>{analysisError}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-          
-          <Card className="mt-6">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>AI Offer Terms Generator</CardTitle>
-              </div>
-              <CardDescription>
-                Generate suggested offer terms for this property
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {!offerTerms && !isGeneratingOffer && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">Generate suggested offer terms based on property data.</p>
-                  <Button onClick={handleGenerateOffer}>
-                    Generate Offer Terms
-                  </Button>
-                </div>
-              )}
-              
-              {isGeneratingOffer && (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-4" />
-                  <p>Generating offer terms...</p>
-                </div>
-              )}
-              
-              {offerTerms && (
-                <div className="prose max-w-none">
-                  <div className="whitespace-pre-wrap">{offerTerms}</div>
-                  <div className="mt-4">
-                    <Button onClick={handleGenerateOffer} variant="outline" size="sm">
-                      Regenerate Offer Terms
-                    </Button>
-                  </div>
-                </div>
-              )}
-              
-              {offerError && (
-                <div className="bg-red-50 p-4 rounded-md text-red-800 mt-4">
-                  <p className="font-bold">Error generating offer terms:</p>
-                  <p>{offerError}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          </DealAnalysisWrapper>
         </TabsContent>
 
         <TabsContent value="offers">

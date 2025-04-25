@@ -27,6 +27,55 @@ const formatReadableDate = (timestamp: number | null): string => {
   });
 };
 
+// Helper function to update subscription tier in user profile
+async function updateUserSubscriptionTier(userId: string, status: string) {
+  const supabase = createClient();
+  let tier = 'free';
+  
+  if (status === 'trialing') {
+    tier = 'trial';
+  } else if (status === 'active') {
+    tier = 'pro';
+  }
+  
+  // Get the previous tier before updating
+  const { data: userProfile, error: fetchError } = await supabase
+    .from('profiles')
+    .select('subscription_tier')
+    .eq('id', userId)
+    .single();
+    
+  const previousTier = fetchError ? 'unknown' : (userProfile?.subscription_tier || 'free');
+  
+  // Update the subscription tier
+  const { error } = await supabase
+    .from('profiles')
+    .update({ subscription_tier: tier })
+    .eq('id', userId);
+    
+  if (error) {
+    console.error('Error updating subscription tier:', error);
+  } else {
+    console.log(`Updated user ${userId} subscription tier to ${tier}`);
+    
+    // Log the subscription change to usage_log for analytics
+    if (tier !== previousTier) {
+      await supabase.from('usage_log').insert({
+        user_id: userId,
+        feature: 'subscription_change',
+        metadata: {
+          previous_tier: previousTier,
+          new_tier: tier,
+          status: status,
+          source: 'stripe_webhook'
+        }
+      });
+      
+      console.log(`Logged subscription change from ${previousTier} to ${tier} for user ${userId}`);
+    }
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
@@ -102,6 +151,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Database error' }, { status: 500 });
           }
           
+          // Update user subscription tier in profiles table
+          await updateUserSubscriptionTier(userId, stripeSubscription.status);
+          
           console.log('New subscription created and stored', {
             userId,
             stripeSubscriptionId: stripeSubscription.id,
@@ -114,6 +166,7 @@ export async function POST(request: NextRequest) {
         const subscription = event.data.object as unknown as {
           id: string;
           status: string;
+          customer: string;
           trial_end: number | null;
           current_period_end: number;
           cancel_at_period_end: boolean;
@@ -127,6 +180,18 @@ export async function POST(request: NextRequest) {
         if (!periodEndDate) {
           console.error('Missing required current_period_end');
           return NextResponse.json({ error: 'Invalid subscription data' }, { status: 400 });
+        }
+        
+        // Get the user ID for this subscription
+        const { data: subscriptionData, error: fetchError } = await supabase
+          .from('user_subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .single();
+          
+        if (fetchError) {
+          console.error('Error finding subscription:', fetchError);
+          return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
         
         // Update subscription information in database
@@ -146,6 +211,11 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Database error' }, { status: 500 });
         }
         
+        // Update user subscription tier in profiles table
+        if (subscriptionData?.user_id) {
+          await updateUserSubscriptionTier(subscriptionData.user_id, subscription.status);
+        }
+        
         console.log('Subscription updated in database', {
           stripeSubscriptionId: subscription.id,
           status: subscription.status,
@@ -155,6 +225,18 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
+        
+        // Get the user ID for this subscription
+        const { data: subscriptionData, error: fetchError } = await supabase
+          .from('user_subscriptions')
+          .select('user_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .single();
+          
+        if (fetchError) {
+          console.error('Error finding subscription:', fetchError);
+          return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        }
         
         // Update subscription status to canceled in database
         const { error } = await supabase
@@ -168,6 +250,11 @@ export async function POST(request: NextRequest) {
         if (error) {
           console.error('Error updating subscription in database:', error);
           return NextResponse.json({ error: 'Database error' }, { status: 500 });
+        }
+        
+        // Update user subscription tier to free
+        if (subscriptionData?.user_id) {
+          await updateUserSubscriptionTier(subscriptionData.user_id, 'canceled');
         }
         
         console.log('Subscription marked as canceled in database', {
@@ -318,12 +405,59 @@ export async function POST(request: NextRequest) {
               })
               .eq('stripe_subscription_id', invoice.subscription);
             
+            // Update the user's subscription tier to 'pro'
+            if (subscriptionData?.user_id) {
+              await updateUserSubscriptionTier(subscriptionData.user_id, 'active');
+            }
+            
             console.log('Trial converted to paid subscription', {
               userId: subscriptionData.user_id,
               subscriptionId: invoice.subscription
             });
             
             // You could also send a "welcome to pro" email here
+            if (subscriptionData?.user_id) {
+              // Get user's email
+              const { data: userData } = await supabase
+                .from('profiles')
+                .select('email')
+                .eq('id', subscriptionData.user_id)
+                .single();
+                
+              if (userData?.email) {
+                // Send welcome to pro email
+                await sendEmail({
+                  to: userData.email,
+                  subject: 'Welcome to Deal Genie Pro!',
+                  html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                      <h2 style="color: #4F46E5;">Welcome to Deal Genie Pro!</h2>
+                      <p>Hi there,</p>
+                      <p>Your subscription to Deal Genie Pro is now active. Thank you for your payment!</p>
+                      <p>You now have <strong>unlimited access</strong> to all premium features including:</p>
+                      <ul>
+                        <li>Unlimited property analyses</li>
+                        <li>Unlimited offer generation</li>
+                        <li>Unlimited CSV imports</li>
+                        <li>Advanced analytics and reporting</li>
+                      </ul>
+                      <p>We're excited to help you find and analyze more great real estate deals!</p>
+                      <p>If you have any questions or need assistance, please reply to this email.</p>
+                      <p>Thank you for choosing Deal Genie!</p>
+                      <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eaeaea; font-size: 12px; color: #666;">
+                        <p>Deal Genie - AI-Powered Real Estate Investment Platform</p>
+                        <p>This email was sent to ${userData.email}</p>
+                      </div>
+                    </div>
+                  `,
+                });
+                
+                console.log('Welcome to Pro email sent', {
+                  userId: subscriptionData.user_id,
+                  email: userData.email
+                });
+              }
+            }
           }
         }
         break;

@@ -14,7 +14,15 @@ const FEATURE_DISPLAY_NAMES: Record<string, string> = {
   csv_import: 'CSV Imports'
 };
 
-export default function UsageLimits() {
+interface UsageLimitsProps {
+  standalone?: boolean;
+  showSingleFeature?: string;
+}
+
+export default function UsageLimits({ 
+  standalone = true,
+  showSingleFeature
+}: UsageLimitsProps) {
   const { isLoading, usageSummary, getUsageSummary } = useUsageLimit();
   
   useEffect(() => {
@@ -28,7 +36,54 @@ export default function UsageLimits() {
     return () => clearInterval(interval);
   }, [getUsageSummary]);
   
-  if (isLoading && !usageSummary) {
+  // Function to render a single feature's usage bar
+  const renderFeatureUsage = (feature: string, data: { currentUsage: number; limit: number; percentage: number }) => {
+    const displayName = FEATURE_DISPLAY_NAMES[feature] || feature;
+    const { currentUsage, limit, percentage } = data;
+    const isUnlimited = limit === Infinity;
+    const isNearLimit = percentage >= 80 && !isUnlimited;
+    const isAtLimit = percentage >= 100 && !isUnlimited;
+    
+    return (
+      <div key={feature} className="space-y-1">
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">{displayName}</span>
+          <span className="text-sm text-gray-500">
+            {currentUsage} / {isUnlimited ? '∞' : limit}
+          </span>
+        </div>
+        
+        <div className={isAtLimit ? 'bg-red-100' : isNearLimit ? 'bg-amber-100' : 'bg-gray-100'}>
+          <Progress 
+            value={isUnlimited ? 5 : percentage} 
+            className={`h-2 ${isAtLimit ? 'bg-red-600' : isNearLimit ? 'bg-amber-500' : 'bg-blue-600'}`}
+          />
+        </div>
+        
+        {isAtLimit && (
+          <div className="flex items-center mt-1 text-red-600 text-xs">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            <span>Limit reached. Please upgrade your plan for more.</span>
+          </div>
+        )}
+        
+        {isNearLimit && !isAtLimit && (
+          <div className="flex items-center mt-1 text-amber-600 text-xs">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            <span>Almost at limit. Consider upgrading your plan.</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+  
+  // For single feature mode (non-standalone)
+  if (!standalone && showSingleFeature && usageSummary && usageSummary[showSingleFeature]) {
+    return renderFeatureUsage(showSingleFeature, usageSummary[showSingleFeature]);
+  }
+  
+  // For standalone component in loading state
+  if (standalone && isLoading && !usageSummary) {
     return (
       <Card>
         <CardHeader>
@@ -39,8 +94,8 @@ export default function UsageLimits() {
     );
   }
   
-  // No usage data available
-  if (!usageSummary || Object.keys(usageSummary).length === 0) {
+  // For standalone component with no usage data
+  if (standalone && (!usageSummary || Object.keys(usageSummary).length === 0)) {
     return (
       <Card>
         <CardHeader>
@@ -62,55 +117,25 @@ export default function UsageLimits() {
     );
   }
   
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Usage Limits</CardTitle>
-        <CardDescription>
-          Track your feature usage and limits for this billing period
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {Object.entries(usageSummary).map(([feature, data]) => {
-          const displayName = FEATURE_DISPLAY_NAMES[feature] || feature;
-          const { currentUsage, limit, percentage } = data;
-          const isUnlimited = limit === Infinity;
-          const isNearLimit = percentage >= 80 && !isUnlimited;
-          const isAtLimit = percentage >= 100 && !isUnlimited;
-          
-          return (
-            <div key={feature} className="space-y-1">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">{displayName}</span>
-                <span className="text-sm text-gray-500">
-                  {currentUsage} / {isUnlimited ? '∞' : limit}
-                </span>
-              </div>
-              
-              <div className={isAtLimit ? 'bg-red-100' : isNearLimit ? 'bg-amber-100' : 'bg-gray-100'}>
-                <Progress 
-                  value={isUnlimited ? 5 : percentage} 
-                  className={`h-2 ${isAtLimit ? 'bg-red-600' : isNearLimit ? 'bg-amber-500' : 'bg-blue-600'}`}
-                />
-              </div>
-              
-              {isAtLimit && (
-                <div className="flex items-center mt-1 text-red-600 text-xs">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  <span>Limit reached. Please upgrade your plan for more.</span>
-                </div>
-              )}
-              
-              {isNearLimit && !isAtLimit && (
-                <div className="flex items-center mt-1 text-amber-600 text-xs">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  <span>Almost at limit. Consider upgrading your plan.</span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </CardContent>
-    </Card>
-  );
+  // Main standalone component with data
+  if (standalone) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Usage Limits</CardTitle>
+          <CardDescription>
+            Track your feature usage and limits for this billing period
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {usageSummary && Object.entries(usageSummary).map(([feature, data]) => 
+            renderFeatureUsage(feature, data)
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  // Default: empty fragment for non-standalone mode without matching feature
+  return <></>;
 } 

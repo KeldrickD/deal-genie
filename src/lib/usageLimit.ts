@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server';
 import { USAGE_LIMITS, FEATURE_NAMES, STATUS_CODES } from './config';
 import { cookies } from 'next/headers';
 import { getUserProfile } from './auth';
+import { checkAndSendUsageNotifications } from './usageNotifications';
 
 // Types
 type Feature = keyof typeof FEATURE_NAMES;
@@ -109,6 +110,14 @@ export async function checkUsageLimit(
     
     const currentUsage = count || 0;
     const hasReachedLimit = currentUsage >= limit;
+    
+    // Check if we need to send email notifications
+    const usageData = { currentUsage, limit };
+    
+    // Call the notification function asynchronously so we don't block the response
+    Promise.resolve().then(() => {
+      checkAndSendUsageNotifications(userId, feature, usageData).catch(console.error);
+    });
     
     return { hasReachedLimit, currentUsage, limit };
   } catch (error) {
@@ -235,6 +244,11 @@ export async function getUserUsageSummary(
     
     // Count usage for each feature
     data?.forEach(item => {
+      if (item.feature === 'email_notification') {
+        // Skip email notification entries in the usage log
+        return;
+      }
+      
       if (summary[item.feature]) {
         summary[item.feature].currentUsage++;
       } else {
@@ -248,11 +262,9 @@ export async function getUserUsageSummary(
     });
     
     // Calculate percentages
-    Object.keys(summary).forEach(feature => {
-      const { currentUsage, limit } = summary[feature];
-      summary[feature].percentage = limit === Infinity 
-        ? 0 
-        : Math.min(Math.round((currentUsage / limit) * 100), 100);
+    Object.keys(summary).forEach(key => {
+      const { currentUsage, limit } = summary[key];
+      summary[key].percentage = limit === Infinity ? 0 : Math.min(Math.round((currentUsage / limit) * 100), 100);
     });
     
     return summary;
