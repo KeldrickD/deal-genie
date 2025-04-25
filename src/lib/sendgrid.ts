@@ -1,24 +1,27 @@
 import type { MailDataRequired } from '@sendgrid/mail';
 
-let sgMail: any;
-
-// Try to import SendGrid, with a fallback to prevent build failures
-try {
-  sgMail = require('@sendgrid/mail');
-  // Initialize the SendGrid API with the key from environment variables
-  if (process.env.SENDGRID_API_KEY) {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  }
-} catch (error) {
-  console.warn('SendGrid package not available:', error);
-  // Create a mock implementation that logs but doesn't fail
-  sgMail = {
-    setApiKey: () => {},
-    send: async () => {
-      console.log('SendGrid mock: email would be sent here');
-      return [{ statusCode: 200 }];
+// Helper function to dynamically import SendGrid
+async function getSendGridClient() {
+  try {
+    const sgMail = await import('@sendgrid/mail');
+    
+    // Initialize the API key
+    if (process.env.SENDGRID_API_KEY) {
+      sgMail.default.setApiKey(process.env.SENDGRID_API_KEY);
     }
-  };
+    
+    return sgMail.default;
+  } catch (error) {
+    console.warn('SendGrid package not available:', error);
+    // Return a mock implementation
+    return {
+      setApiKey: () => {},
+      send: async () => {
+        console.log('SendGrid mock: email would be sent here');
+        return [{ statusCode: 200 }];
+      }
+    };
+  }
 }
 
 // Base email function for sending standard emails
@@ -34,6 +37,8 @@ export async function sendEmail({
   html?: string;
 }) {
   try {
+    const sgMail = await getSendGridClient();
+    
     const msg: MailDataRequired = {
       to,
       from: process.env.EMAIL_FROM || 'no-reply@dealgenieos.com',
@@ -70,6 +75,8 @@ export async function sendTemplateEmail({
   dynamicTemplateData?: Record<string, any>;
 }) {
   try {
+    const sgMail = await getSendGridClient();
+    
     await sgMail.send({
       to,
       from: process.env.EMAIL_FROM || 'no-reply@dealgenieos.com',

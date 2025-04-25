@@ -8,7 +8,9 @@
       "src": "next.config.js",
       "use": "@vercel/next",
       "config": {
-        "reinstallDependencies": true
+        "reinstallDependencies": true,
+        "zeroConfig": true,
+        "buildCache": false
       }
     }
   ],
