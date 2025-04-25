@@ -19,6 +19,18 @@ import {
   Cloud,
   Network
 } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'GenieOS Features – AI Real Estate OS',
+  description: 'Discover GenieOS’s AI-powered deal analysis, offer generation, and market insights.',
+  openGraph: {
+    title: 'GenieOS Features',
+    description: 'AI-driven property analyzer, offer engine, Smart Scout & more.',
+    url: 'https://your-domain.com/features', // Replace with your actual URL
+    images: '/og/features.png', // Replace with your actual OG image path
+  },
+};
 
 export default function FeaturesPage() {
   return (
@@ -87,7 +99,7 @@ interface FeatureCardProps {
 
 function FeatureCard({ icon: Icon, title, description, isComingSoon = false }: FeatureCardProps) {
   return (
-    <div className="bg-card p-6 rounded-lg border shadow-sm">
+    <div className="bg-card p-6 rounded-lg border shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <Icon className="h-8 w-8 text-primary" />
         {isComingSoon && <Badge variant="secondary">Coming Soon</Badge>}

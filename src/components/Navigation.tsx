@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useFeatureFlags } from '@/lib/featureFlags';
+import { Button } from "@/components/ui/button";
 
 export default function Navigation() {
   const router = useRouter();
@@ -89,77 +90,22 @@ export default function Navigation() {
           <div className="hidden md:flex items-center space-x-8">
             {isAuthenticated ? (
               <>
-                <a
-                  href="/dashboard"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to dashboard');
-                    window.location.href = '/dashboard';
-                  }}
-                >
-                  Dashboard
-                </a>
-                <a
-                  href="/bulk-analysis"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to bulk analysis');
-                    window.location.href = '/bulk-analysis';
-                  }}
-                >
-                  Genie Analyzer
-                </a>
-                <a
-                  href="/offers"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/offers') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to offers');
-                    window.location.href = '/offers';
-                  }}
-                >
-                  Genie Offer Engine
-                </a>
-                <a
-                  href="/smart-scout"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/smart-scout') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to smart scout');
-                    window.location.href = '/smart-scout';
-                  }}
-                >
-                  Smart Scout
-                </a>
-                <a
-                  href="/exit-strategy"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/exit-strategy') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to exit strategy simulator');
-                    window.location.href = '/exit-strategy';
-                  }}
-                >
-                  Exit Strategy
-                </a>
-                <a
-                  href="/genie-net"
-                  className={`text-gray-600 hover:text-indigo-600 ${isActive('/genie-net') ? 'text-indigo-600 font-medium' : ''}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    console.log('Navigating to genie-net');
-                    window.location.href = '/genie-net';
-                  }}
-                >
-                  {enableGenieNet ? 'GenieNet' : (
+                <Link href="/dashboard" className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}>Dashboard</Link>
+                <Link href="/bulk-analysis" className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}>Genie Analyzer</Link>
+                <Link href="/offers" className={`text-gray-600 hover:text-indigo-600 ${isActive('/offers') ? 'text-indigo-600 font-medium' : ''}`}>Genie Offer Engine</Link>
+                <Link href="/smart-scout" className={`text-gray-600 hover:text-indigo-600 ${isActive('/smart-scout') ? 'text-indigo-600 font-medium' : ''}`}>Smart Scout</Link>
+                <Link href="/exit-strategy" className={`text-gray-600 hover:text-indigo-600 ${isActive('/exit-strategy') ? 'text-indigo-600 font-medium' : ''}`}>Exit Strategy</Link>
+                {enableGenieNet && 
+                  <Link href="/genie-net" className={`text-gray-600 hover:text-indigo-600 ${isActive('/genie-net') ? 'text-indigo-600 font-medium' : ''}`}>GenieNet</Link>
+                }
+                {!enableGenieNet && 
+                  <Link href="/genienet/waitlist" className={`text-gray-600 hover:text-indigo-600 ${isActive('/genienet/waitlist') ? 'text-indigo-600 font-medium' : ''}`}>
                     <span className="flex items-center">
                       GenieNet
                       <span className="ml-1.5 text-xs py-0.5 px-1.5 bg-amber-100 text-amber-800 rounded-full">Soon</span>
                     </span>
-                  )}
-                </a>
+                  </Link>
+                }
                 <div className="relative">
                   <button
                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
@@ -201,16 +147,17 @@ export default function Navigation() {
               </>
             ) : (
               <>
-                <Link href="/features" className="text-gray-600 hover:text-indigo-600">Features</Link>
-                <Link href="/pricing" className="text-gray-600 hover:text-indigo-600">Pricing</Link>
-                <Link href="/about" className="text-gray-600 hover:text-indigo-600">About</Link>
+                <Link href="/features" className={`text-gray-600 hover:text-indigo-600 ${isActive('/features') ? 'text-indigo-600 font-medium' : ''}`}>Features</Link>
+                <Link href="/pricing" className={`text-gray-600 hover:text-indigo-600 ${isActive('/pricing') ? 'text-indigo-600 font-medium' : ''}`}>Pricing</Link>
+                <Link href="/about" className={`text-gray-600 hover:text-indigo-600 ${isActive('/about') ? 'text-indigo-600 font-medium' : ''}`}>About</Link>
+                
                 {!authLoading && (
-                  <>
-                    <Link href="/login" className="text-gray-600 hover:text-indigo-600">Login</Link>
-                    <Link href="/signup" className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700">
-                      Sign Up
-                    </Link>
-                  </>
+                  <div className="flex items-center space-x-4">
+                    <Link href="/login" className="text-gray-600 hover:text-indigo-600 text-sm">Login</Link>
+                    <Button size="sm" asChild> 
+                      <Link href="/signup">Get Started Free</Link>
+                    </Button>
+                  </div>
                 )}
               </>
             )}

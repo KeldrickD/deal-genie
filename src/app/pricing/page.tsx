@@ -1,6 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Check } from 'lucide-react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'GenieOS Pricing – Simple Plans for Every Investor',
+  description: 'Choose the right GenieOS plan for your real estate investment needs, from free starter to pro and team options.',
+  openGraph: {
+    title: 'GenieOS Pricing',
+    description: 'Affordable pricing for AI-powered real estate analysis and tools.',
+    url: 'https://your-domain.com/pricing', // Replace with your actual URL
+    images: '/og/pricing.png', // Replace with your actual OG image path
+  },
+};
 
 export default function PricingPage() {
   return (
@@ -80,14 +92,14 @@ interface PricingCardProps {
   description: string;
   features: string[];
   buttonText: string;
-  buttonVariant?: "default" | "secondary" | "outline" | "ghost" | "link";
+  buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
   isPopular?: boolean;
 }
 
 function PricingCard({ plan, price, pricePeriod, description, features, buttonText, buttonVariant = "default", isPopular = false }: PricingCardProps) {
   return (
-    <div className={`border rounded-lg p-6 text-center flex flex-col ${isPopular ? 'border-2 border-primary shadow-lg' : 'bg-card'}`}>
-      {isPopular && <Badge className="absolute -top-3 right-3">Most Popular</Badge>}
+    <div className={`border rounded-lg p-6 text-center flex flex-col shadow-lg ${isPopular ? 'border-2 border-primary' : 'bg-card'}`}>
+      {isPopular && <Badge variant="default" className="mb-2 self-center">Most Popular</Badge>}
       <h2 className="text-2xl font-semibold mb-2">{plan}</h2>
       <p className="text-muted-foreground text-sm mb-4">{description}</p>
       <p className="text-4xl font-bold mb-4">{price}{pricePeriod && <span className="text-base text-muted-foreground font-normal">{pricePeriod}</span>}</p>

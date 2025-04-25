@@ -1,5 +1,17 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'About GenieOS – Our Mission & Team',
+  description: 'Learn about the mission behind GenieOS and the team dedicated to revolutionizing real estate investment with AI.',
+  openGraph: {
+    title: 'About GenieOS',
+    description: 'Meet the team building the AI operating system for real estate investors.',
+    url: 'https://your-domain.com/about', // Replace with your actual URL
+    images: '/og/about.png', // Replace with your actual OG image path
+  },
+};
 
 export default function AboutPage() {
   return (
