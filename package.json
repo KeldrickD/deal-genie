@@ -1,8 +1,9 @@
 {
-  "name": "genieos",
-  "version": "0.1.0",
+  "name": "deal-genie",
+  "version": "1.0.0",
   "private": true,
-  "description": "AI-powered operating system for real estate investors",
+  "type": "module",
+  "description": "Deal Genie: AI Operating System for Real Estate Deals",
   "scripts": {
     "dev": "next dev",
     "build": "NEXT_TELEMETRY_DISABLED=1 SKIP_ESLINT=1 next build",
@@ -22,6 +23,7 @@
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-switch": "^1.2.2",
     "@radix-ui/react-tabs": "^1.1.9",
+    "@sendgrid/mail": "^8.1.0",
     "@stripe/stripe-js": "^7.1.0",
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "^0.6.1",
@@ -56,6 +58,7 @@
     "@types/react-dom": "^18",
     "eslint": "^9",
     "eslint-config-next": "15.3.1",
+    "globby": "^14.1.0",
     "husky": "^9.0.11",
     "puppeteer": "^24.7.2",
     "tailwindcss": "^4",
@@ -72,7 +75,7 @@
     "typescript",
     "supabase"
   ],
-  "author": "GenieOS Team",
+  "author": "Deal Genie Team",
   "repository": {
     "type": "git",
     "url": "https://github.com/KeldrickD/deal-genie.git"
