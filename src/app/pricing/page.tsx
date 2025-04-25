@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     title: 'GenieOS Pricing',
     description: 'Affordable pricing for AI-powered real estate analysis and tools.',
     url: 'https://your-domain.com/pricing', // Replace with your actual URL
-    images: '/og/pricing.png', // Replace with your actual OG image path
+    images: [{ url: '/api/og?page=pricing', width: 1200, height: 630 }],
   },
 };
 
