@@ -1,5 +1,6 @@
 import { ImageResponse } from '@vercel/og';
 import type { NextRequest } from 'next/server';
+import { SITE } from '@/lib/config'; // Import SITE config
 
 export const runtime = 'edge';
 
@@ -19,28 +20,24 @@ export async function GET(req: NextRequest) {
   // ======================================================
   console.warn('Dynamic OG image generation is temporarily disabled due to build issues.');
   return new Response('OG Image generation disabled', { status: 501 }); // Not Implemented
-  /* 
+  /*
   try {
     const { searchParams } = new URL(req.url);
     const page = searchParams.get('page') ?? 'default'; 
 
-    let title = 'GenieOS';
-    let subtitle = 'The AI Operating System for Real Estate Investors';
+    // Define page titles based on page param
+    const pageTitles: Record<string, string> = {
+      features: 'Features',
+      pricing: 'Pricing Plans',
+      about: 'About Us',
+    };
+    const title = pageTitles[page] || SITE.name; // Use SITE.name as fallback
+    const subtitle = SITE.subtitle; // Use consistent subtitle
+    const domain = SITE.domain; // Use domain from config
 
-    if (page === 'features') {
-      title = 'Features';
-      subtitle = 'AI Deal Analyzer, Offer Generator, Smart Scout & more';
-    } else if (page === 'pricing') {
-      title = 'Pricing Plans';
-      subtitle = 'Free, Pro, Team & GenieNet Add-On';
-    } else if (page === 'about') {
-      title = 'About Us';
-      subtitle = 'Our Mission, Story & Team';
-    }
+    // Update logo path if needed
+    // const logoUrl = `${SITE.url}/logo-dealgenie-white.png`; 
 
-    const domain = 'your-domain.com'; // Replace with your actual domain
-
-    // Fetch font data
     const interRegular = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Regular.ttf');
     const interBold = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Bold.ttf');
 

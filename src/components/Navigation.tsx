@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/components/AuthProvider';
 import { useFeatureFlags } from '@/lib/featureFlags';
 import { Button } from "@/components/ui/button";
+import { SITE } from '@/lib/config';
 
 export default function Navigation() {
   const router = useRouter();
@@ -82,7 +83,7 @@ export default function Navigation() {
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <span className="text-2xl font-bold text-indigo-600">🔮 GenieOS</span>
+              <span className="text-2xl font-bold text-indigo-600">🔮 {SITE.name}</span>
             </Link>
           </div>
 
