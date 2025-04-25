@@ -28,13 +28,13 @@ export const metadata: Metadata = {
     title: 'GenieOS Features',
     description: 'AI-driven property analyzer, offer engine, Smart Scout & more.',
     url: 'https://your-domain.com/features', // Replace with your actual URL
-    images: [
-      {
-        url: '/api/og?page=features',
-        width: 1200,
-        height: 630,
-      },
-    ],
+    // images: [
+    //   {
+    //     url: '/api/og?page=features',
+    //     width: 1200,
+    //     height: 630,
+    //   },
+    // ], // Temporarily commented out
   },
 };
 

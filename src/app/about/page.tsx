@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: 'About GenieOS',
     description: 'Meet the team building the AI operating system for real estate investors.',
     url: 'https://your-domain.com/about', // Replace with your actual URL
-    images: [{ url: '/api/og?page=about', width: 1200, height: 630 }],
+    // images: [{ url: '/api/og?page=about', width: 1200, height: 630 }], // Temporarily commented out
   },
 };
 
