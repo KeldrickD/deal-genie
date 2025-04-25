@@ -1,15 +1,15 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check } from 'lucide-react';
+import PricingCard from "./pricing-card";
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'GenieOS Pricing – Simple Plans for Every Investor',
-  description: 'Choose the right GenieOS plan for your real estate investment needs, from free starter to pro and team options.',
+  title: 'Deal Genie Pricing – Simple Plans for Every Investor',
+  description: 'Choose the right Deal Genie plan for your real estate investment needs, from free starter to pro and team options.',
   openGraph: {
-    title: 'GenieOS Pricing',
+    title: 'Deal Genie Pricing',
     description: 'Affordable pricing for AI-powered real estate analysis and tools.',
-    url: 'https://your-domain.com/pricing', // Replace with your actual URL
+    url: 'https://dealgenieos.com/pricing', // Replace with your actual URL
     // images: [{ url: '/api/og?page=pricing', width: 1200, height: 630 }], // Temporarily commented out
   },
 };
@@ -52,6 +52,7 @@ export default function PricingPage() {
           ]}
           buttonText="Start 14-Day Free Trial"
           isPopular
+          priceId="price_1RHfHEBQTlbe5lZGDU5AjPxL"
         />
 
         {/* Team Plan */}
@@ -69,6 +70,7 @@ export default function PricingPage() {
           ]}
           buttonText="Contact Sales"
           buttonVariant="outline"
+          priceId="price_1RHfKuBQTlbe5lZGsa3rGJNG"
         />
       </div>
 
@@ -82,36 +84,4 @@ export default function PricingPage() {
       </div>
     </div>
   )
-}
-
-// Helper component for pricing cards
-interface PricingCardProps {
-  plan: string;
-  price: string;
-  pricePeriod?: string;
-  description: string;
-  features: string[];
-  buttonText: string;
-  buttonVariant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
-  isPopular?: boolean;
-}
-
-function PricingCard({ plan, price, pricePeriod, description, features, buttonText, buttonVariant = "default", isPopular = false }: PricingCardProps) {
-  return (
-    <div className={`border rounded-lg p-6 text-center flex flex-col shadow-lg ${isPopular ? 'border-2 border-primary' : 'bg-card'}`}>
-      {isPopular && <Badge variant="default" className="mb-2 self-center">Most Popular</Badge>}
-      <h2 className="text-2xl font-semibold mb-2">{plan}</h2>
-      <p className="text-muted-foreground text-sm mb-4">{description}</p>
-      <p className="text-4xl font-bold mb-4">{price}{pricePeriod && <span className="text-base text-muted-foreground font-normal">{pricePeriod}</span>}</p>
-      <ul className="text-left mb-8 space-y-2 text-sm flex-grow">
-        {features.map((feature, index) => (
-          <li key={index} className="flex items-start gap-2">
-            <Check className={`h-4 w-4 mt-0.5 ${isPopular ? 'text-primary' : 'text-green-500'} flex-shrink-0`} />
-            <span>{feature}</span>
-          </li>
-        ))}
-      </ul>
-      <Button variant={buttonVariant} className="w-full mt-auto">{buttonText}</Button>
-    </div>
-  );
 } 
