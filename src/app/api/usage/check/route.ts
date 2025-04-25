@@ -19,66 +19,44 @@ import { STATUS_CODES } from '@/lib/config';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get query parameters
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const feature = searchParams.get('feature');
-    const shouldEnforce = searchParams.get('enforce') === 'true';
-    
+
     if (!feature) {
       return NextResponse.json(
         { success: false, message: 'Feature parameter is required' },
-        { status: STATUS_CODES.BAD_REQUEST }
+        { status: 400 }
       );
     }
-    
-    // Get the current user
+
+    // Get the current user from the session
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
-        { status: STATUS_CODES.UNAUTHORIZED }
+        { status: 401 }
       );
     }
-    
-    const userId = session.user.id;
-    
-    // If enforce is true, record usage and enforce limit
-    if (shouldEnforce) {
-      const result = await enforceUsageLimit(userId, feature);
-      
-      return NextResponse.json(
-        {
-          success: result.success,
-          message: result.message,
-          hasReachedLimit: !result.success,
-          currentUsage: result.currentUsage,
-          limit: result.limit
-        },
-        { status: result.statusCode }
-      );
-    }
-    
-    // Otherwise, just check the limit
-    const { hasReachedLimit, currentUsage, limit } = await checkUsageLimit(userId, feature);
-    
-    return NextResponse.json(
-      {
-        success: true,
-        message: hasReachedLimit ? 'Usage limit reached' : 'Usage within limits',
-        hasReachedLimit,
-        currentUsage,
-        limit
-      },
-      { status: STATUS_CODES.SUCCESS }
+
+    // Check the usage limit
+    const { hasReachedLimit, currentUsage, limit } = await checkUsageLimit(
+      session.user.id, 
+      feature
     );
-    
+
+    return NextResponse.json({
+      success: true,
+      hasReachedLimit,
+      currentUsage,
+      limit
+    });
   } catch (error) {
     console.error('Error checking usage limit:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: STATUS_CODES.SERVER_ERROR }
+      { success: false, message: 'Failed to check usage limit' },
+      { status: 500 }
     );
   }
 } 

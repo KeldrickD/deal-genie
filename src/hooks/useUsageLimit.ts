@@ -3,7 +3,6 @@ import { FEATURE_NAMES } from '@/lib/config';
 import { toast } from 'sonner';
 import { trackEvent } from '@/lib/analytics';
 import { useAuthContext } from '@/components/AuthProvider';
-import { enforceUsageLimit } from '@/lib/usageLimit';
 
 type Feature = keyof typeof FEATURE_NAMES;
 type UsageSummary = Record<string, { currentUsage: number; limit: number; percentage: number }>;
@@ -142,7 +141,18 @@ export function useUsageLimit() {
     }
 
     try {
-      const result = await enforceUsageLimit(user.id, FEATURE_NAMES[feature], metadata);
+      const response = await fetch('/api/usage/enforce', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          feature: FEATURE_NAMES[feature], 
+          metadata 
+        })
+      });
+      
+      const result = await response.json();
 
       if (!result.success) {
         if (showUpgradePrompt && featureInfo) {

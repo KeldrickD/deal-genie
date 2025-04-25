@@ -1,19 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceUsageLimit } from '@/lib/usageLimit';
 import { createClient } from '@/utils/supabase/server';
-import { recordUsage } from '@/lib/usageLimit';
-import { STATUS_CODES } from '@/lib/config';
 
-/**
- * API route to record a usage event for a feature
- * 
- * Expected request body:
- * - feature: The feature to record usage for (required)
- * - metadata: Optional metadata about the usage event
- * 
- * Expected response:
- * - success: Whether the operation succeeded
- * - message: A descriptive message
- */
 export async function POST(request: NextRequest) {
   try {
     // Parse the request body
@@ -38,28 +26,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Record the usage
-    const success = await recordUsage(
+    // Enforce the usage limit
+    const result = await enforceUsageLimit(
       session.user.id, 
       feature,
       metadata
     );
 
-    if (!success) {
-      return NextResponse.json(
-        { success: false, message: 'Failed to record usage' },
-        { status: 500 }
-      );
-    }
-
     return NextResponse.json({
-      success: true,
-      message: 'Usage recorded successfully'
-    });
+      success: result.success,
+      message: result.message,
+      currentUsage: result.currentUsage,
+      limit: result.limit
+    }, { status: result.statusCode });
   } catch (error) {
-    console.error('Error recording usage:', error);
+    console.error('Error enforcing usage limit:', error);
     return NextResponse.json(
-      { success: false, message: 'Failed to record usage' },
+      { success: false, message: 'Failed to enforce usage limit' },
       { status: 500 }
     );
   }

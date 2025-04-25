@@ -13,36 +13,29 @@ import { STATUS_CODES } from '@/lib/config';
  */
 export async function GET(request: NextRequest) {
   try {
-    // Get the current user
+    // Get the current user from the session
     const supabase = createClient();
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session?.user) {
       return NextResponse.json(
         { success: false, message: 'Authentication required' },
-        { status: STATUS_CODES.UNAUTHORIZED }
+        { status: 401 }
       );
     }
-    
-    const userId = session.user.id;
-    
-    // Get the user's usage summary
-    const summary = await getUserUsageSummary(userId);
-    
-    return NextResponse.json(
-      {
-        success: true,
-        message: 'Usage summary retrieved successfully',
-        summary
-      },
-      { status: STATUS_CODES.SUCCESS }
-    );
-    
+
+    // Get the usage summary
+    const summary = await getUserUsageSummary(session.user.id);
+
+    return NextResponse.json({
+      success: true,
+      summary
+    });
   } catch (error) {
     console.error('Error getting usage summary:', error);
     return NextResponse.json(
-      { success: false, message: 'Internal server error' },
-      { status: STATUS_CODES.SERVER_ERROR }
+      { success: false, message: 'Failed to get usage summary' },
+      { status: 500 }
     );
   }
 } 
