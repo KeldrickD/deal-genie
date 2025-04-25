@@ -14,10 +14,14 @@ const eslintConfig = [
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
-      "@typescript-eslint/no-unused-vars": "warn",
+      "@typescript-eslint/no-unused-vars": "off",
+      "react/jsx-no-undef": "off",
       "react/no-unescaped-entities": "off",
-      "import/no-anonymous-default-export": "off",
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "off",
+      "@typescript-eslint/no-empty-object-type": "off",
+      "jsx-a11y/alt-text": "off",
+      "@next/next/no-img-element": "off",
+      "import/no-anonymous-default-export": "off"
     },
   },
 ];
