@@ -57,7 +57,7 @@ export default function SignupPage() {
       <div className="py-6">
         <div className="container mx-auto px-4">
           <Link href="/" className="flex items-center">
-            <span className="text-2xl font-bold text-indigo-600">🔮 GenieOS</span>
+            <span className="text-2xl font-bold text-indigo-600">🔮 Deal Genie</span>
           </Link>
         </div>
       </div>
@@ -68,7 +68,7 @@ export default function SignupPage() {
       
       <footer className="py-6 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} GenieOS. All rights reserved.
+          &copy; {new Date().getFullYear()} Deal Genie. All rights reserved.
         </div>
       </footer>
     </div>

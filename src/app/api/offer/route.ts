@@ -107,7 +107,7 @@ If this offer interests you, please contact me at ${userProfile?.email || 'inves
 Looking forward to your response,
 
 ${userProfile?.name || 'John Doe'}
-${userProfile?.company || 'GenieOS Investor'}
+${userProfile?.company || 'Deal Genie Investor'}
 ${userProfile?.phone || '(555) 123-4567'}
     `;
   } catch (error) {

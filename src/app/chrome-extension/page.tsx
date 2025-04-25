@@ -65,7 +65,7 @@ export default function ChromeExtensionPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p>Automatically imports property details, photos, and listing information directly to your GenieOS dashboard.</p>
+            <p>Automatically imports property details, photos, and listing information directly to your Deal Genie dashboard.</p>
           </CardContent>
         </Card>
 
@@ -127,7 +127,7 @@ export default function ChromeExtensionPage() {
             <TabsContent value="save" className="space-y-4 py-4">
               <div className="border rounded-md p-4 bg-muted/30">
                 <p className="text-sm font-medium mb-2">4. Save to your dashboard</p>
-                <p className="text-sm text-muted-foreground">With one more click, save the property and all analysis data to your GenieOS dashboard for further review or to generate an offer.</p>
+                <p className="text-sm text-muted-foreground">With one more click, save the property and all analysis data to your Deal Genie dashboard for further review or to generate an offer.</p>
               </div>
             </TabsContent>
           </Tabs>

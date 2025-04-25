@@ -1,5 +1,5 @@
 /**
- * Feature Flags for GenieOS
+ * Feature Flags for Deal Genie
  * 
  * This file manages feature flags for the application.
  * Feature flags allow us to enable/disable features in different environments.

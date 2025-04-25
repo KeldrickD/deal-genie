@@ -1,4 +1,4 @@
-# GenieOS
+# Deal Genie
 
 **The AI Operating System for Real Estate Investors**  
 Make smarter, faster real estate decisions with AI-powered deal analysis, offer generation, and strategy simulation.
@@ -31,8 +31,8 @@ Make smarter, faster real estate decisions with AI-powered deal analysis, offer 
 
 1. Clone the repo:
    ```bash
-   git clone https://github.com/yourusername/genieos.git
-   cd genieos
+   git clone https://github.com/yourusername/Deal Genie.git
+   cd Deal Genie
    ```
 
 2. Install dependencies:
@@ -104,7 +104,7 @@ Make smarter, faster real estate decisions with AI-powered deal analysis, offer 
 - Supabase
 - OpenAI API
 
-# GenieOS Property Analysis Integration
+# Deal Genie Property Analysis Integration
 
 ## New Feature: Enhanced Property Analysis
 

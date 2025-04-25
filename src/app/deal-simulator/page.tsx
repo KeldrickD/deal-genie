@@ -95,7 +95,7 @@ export default function DealSimulatorPage() {
       <Card>
         <CardHeader>
           <CardTitle>Simulator Preview</CardTitle>
-          <CardDescription>How the Deal Simulator will look in GenieOS</CardDescription>
+          <CardDescription>How the Deal Simulator will look in Deal Genie</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="parameters">
@@ -399,7 +399,7 @@ export default function DealSimulatorPage() {
 
       <div className="pt-4 text-center">
         <h2 className="text-2xl font-bold mb-3">Ready to simulate your next deal?</h2>
-        <p className="text-muted-foreground max-w-2xl mx-auto mb-6">The Deal Simulator is coming soon to GenieOS. Be among the first to access this powerful tool for optimizing your investment strategy.</p>
+        <p className="text-muted-foreground max-w-2xl mx-auto mb-6">The Deal Simulator is coming soon to Deal Genie. Be among the first to access this powerful tool for optimizing your investment strategy.</p>
         <Button size="lg">Join the Waitlist</Button>
       </div>
     </div>

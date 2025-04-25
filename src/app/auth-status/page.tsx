@@ -19,9 +19,9 @@ export default function AuthStatusPage() {
         
         // Check common auth keys
         const keys = [
-          'genieos_session',
+          'Deal Genie_session',
           'supabase_session',
-          'genieos_user',
+          'Deal Genie_user',
           'supabase.auth.token'
         ];
         
@@ -52,7 +52,7 @@ export default function AuthStatusPage() {
         <div className="container mx-auto px-4">
           <div className="flex justify-between items-center">
             <Link href="/" className="flex items-center">
-              <span className="text-2xl font-bold text-indigo-600">🔮 GenieOS</span>
+              <span className="text-2xl font-bold text-indigo-600">🔮 Deal Genie</span>
             </Link>
             <div>
               <Link 
@@ -162,7 +162,7 @@ export default function AuthStatusPage() {
       
       <footer className="py-6 bg-white border-t border-gray-200">
         <div className="container mx-auto px-4 text-center text-sm text-gray-500">
-          &copy; {new Date().getFullYear()} GenieOS. All rights reserved.
+          &copy; {new Date().getFullYear()} Deal Genie. All rights reserved.
         </div>
       </footer>
     </div>

@@ -33,6 +33,7 @@ import LeadImporter from '@/components/LeadImporter';
 import XpSystem from '@/components/XpSystem';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import GenieDecision from '@/components/GenieDecision'; 
+import TrialBanner from '@/components/TrialBanner';
 
 // Define types for Profile and Deal based on your src/types/supabase.ts
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -50,6 +51,31 @@ interface AnalysisData {
   cash_on_cash_roi?: number;
   reasoning?: string;
 }
+
+// Helper functions for formatting
+const formatCurrency = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return 'N/A';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(value);
+};
+
+// Helper function to get status styles
+const getStatusStyle = (status: string | null | undefined): string => {
+  if (!status) return 'bg-gray-100 text-gray-800';
+  
+  switch (status) {
+    case 'Lead': return 'bg-blue-100 text-blue-800';
+    case 'Analyzing': return 'bg-yellow-100 text-yellow-800';
+    case 'Negotiating': return 'bg-purple-100 text-purple-800';
+    case 'Contracted': return 'bg-green-100 text-green-800';
+    case 'Closed': return 'bg-gray-100 text-gray-800';
+    case 'Dead': return 'bg-red-100 text-red-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
 
 export default function Dashboard() {
   // Get supabase instance from context
@@ -430,282 +456,293 @@ export default function Dashboard() {
 
   // Main dashboard view
   return (
-    <div className="container mx-auto p-6">
-      {/* Profile greeting */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-4">
-          Welcome, {isEditing ? (
-            <span className="inline-flex items-center">
-              <Input  
-                type="text" 
-                value={editingName} 
-                onChange={(e) => setEditingName(e.target.value)}
-                className="text-2xl px-2 py-1 h-auto mr-2 w-auto min-w-[200px]"
-                disabled={isUpdating}
-                autoFocus 
-              />
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleUpdateProfile} 
-                disabled={isUpdating}
-                className="mr-2"
-              >
-                Save
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => { 
-                  setIsEditing(false); 
-                  setEditingName(profile?.full_name || '');
-                }}
-                disabled={isUpdating}
-              >
-                Cancel
-              </Button>
-            </span>
-          ) : (
-            <>
-              <span className="cursor-pointer hover:underline" onClick={() => {
-                setIsEditing(true);
-                setEditingName(profile?.full_name || '');
-              }}>
-                {profile?.full_name || profile?.email || 'User'}
-              </span>
-              <span className="text-gray-400 text-sm ml-2">(click to edit)</span>
-            </>
-          )}
-        </h1>
-        {updateError && (
-          <Alert variant="destructive" className="mt-4">
-            <AlertTitle>Error updating profile</AlertTitle>
-            <AlertDescription>
-              {updateError}
-            </AlertDescription>
-          </Alert>
-        )}
-      </div>
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Show error if any */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-      {/* After the welcome section and before the deals list: */}
-      <div className="mb-6">
-        <XpSystem />
-      </div>
-
-      {/* Check if any usage limits are reached and show upgrade prompt */}
-      {(usageData.analyses.current >= usageData.analyses.limit ||
-        usageData.offers.current >= usageData.offers.limit ||
-        usageData.imports.current >= usageData.imports.limit) && (
-        <div className="mb-6">
-          <UpgradePrompt 
-            usageType={
-              usageData.analyses.current >= usageData.analyses.limit ? 'analyses' :
-              usageData.offers.current >= usageData.offers.limit ? 'offers' :
-              'imports'
-            }
-            currentUsage={
-              usageData.analyses.current >= usageData.analyses.limit ? usageData.analyses.current :
-              usageData.offers.current >= usageData.offers.limit ? usageData.offers.current :
-              usageData.imports.current
-            }
-            limit={
-              usageData.analyses.current >= usageData.analyses.limit ? usageData.analyses.limit :
-              usageData.offers.current >= usageData.offers.limit ? usageData.offers.limit :
-              usageData.imports.limit
-            }
-          />
+      {/* Display loading state */}
+      {(pageStatus === 'loading_auth' || pageStatus === 'loading_data') && (
+        <div className="flex flex-col items-center justify-center p-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-lg text-gray-600">Loading your dashboard...</p>
         </div>
       )}
 
-      {/* Lead Importer */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold">Import Leads</h2>
-          <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
-            {showLeadImporter ? 'Hide' : 'Show'} Importer
-          </Button>
-        </div>
-        
-        {showLeadImporter && (
-          <LeadImporter />
-        )}
-      </div>
-
-      {/* Deal management section */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-          <h2 className="text-2xl font-semibold mb-2 sm:mb-0">Your Deals</h2>
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
-            {/* View mode toggle */}
-            <div className="flex border rounded-md overflow-hidden">
-              <button 
-                className={`px-3 py-1 text-sm ${viewMode === 'list' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                onClick={() => setViewMode('list')}
-              >
-                List View
-              </button>
-              <button 
-                className={`px-3 py-1 text-sm ${viewMode === 'pipeline' 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                onClick={() => setViewMode('pipeline')}
-              >
-                Pipeline View
-              </button>
+      {/* Display loaded content */}
+      {pageStatus === 'loaded' && (
+        <>
+          {/* Trial banner */}
+          <TrialBanner />
+          
+          <header className="flex flex-col md:flex-row md:items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-muted-foreground mt-1">Manage your real estate investments</p>
             </div>
-            
-            {/* Only show filter in list view */}
-            {viewMode === 'list' && (
-              <div className="flex items-center space-x-2">
-                <Label htmlFor="status-filter" className="text-sm whitespace-nowrap">Filter:</Label>
-                <Select 
-                  defaultValue={statusFilter} 
-                  onValueChange={setStatusFilter}
-                >
-                  <SelectTrigger id="status-filter" className="w-[160px]">
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Statuses</SelectItem>
-                    {DEAL_STATUSES.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+          </header>
+
+          {/* Profile greeting */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold mb-4">
+              Welcome, {isEditing ? (
+                <span className="inline-flex items-center">
+                  <Input  
+                    type="text" 
+                    value={editingName} 
+                    onChange={(e) => setEditingName(e.target.value)}
+                    className="text-2xl px-2 py-1 h-auto mr-2 w-auto min-w-[200px]"
+                    disabled={isUpdating}
+                    autoFocus 
+                  />
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleUpdateProfile} 
+                    disabled={isUpdating}
+                    className="mr-2"
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => { 
+                      setIsEditing(false); 
+                      setEditingName(profile?.full_name || '');
+                    }}
+                    disabled={isUpdating}
+                  >
+                    Cancel
+                  </Button>
+                </span>
+              ) : (
+                <>
+                  <span className="cursor-pointer hover:underline" onClick={() => {
+                    setIsEditing(true);
+                    setEditingName(profile?.full_name || '');
+                  }}>
+                    {profile?.full_name || profile?.email || 'User'}
+                  </span>
+                  <span className="text-gray-400 text-sm ml-2">(click to edit)</span>
+                </>
+              )}
+            </h1>
+            {updateError && (
+              <Alert variant="destructive" className="mt-4">
+                <AlertTitle>Error updating profile</AlertTitle>
+                <AlertDescription>
+                  {updateError}
+                </AlertDescription>
+              </Alert>
             )}
-            
-            {/* Add deal button */}
-            <Button onClick={() => document.getElementById('add-deal-form')?.scrollIntoView({ behavior: 'smooth' })}>
-              + Add New Deal
-            </Button>
           </div>
-        </div>
 
-        {/* Show appropriate view based on viewMode */}
-        {viewMode === 'list' ? (
-          deals.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full bg-white">
-                <thead className="bg-gray-100">
-                  <tr>
-                    <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                    <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                    <th className="py-2 px-4 border-b text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredDeals.map(deal => (
-                    <tr key={deal.id} className="hover:bg-gray-50">
-                      <td className="py-2 px-4">
-                        <Link href={`/deals/${deal.id}`} className="text-blue-600 hover:underline">
-                          {deal.deal_name || 'Unnamed Deal'}
-                        </Link>
-                      </td>
-                      <td className="py-2 px-4">{deal.address || '-'}</td>
-                      <td className="py-2 px-4">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusStyle(deal.status)}`}>
-                          {deal.status || 'No Status'}
-                        </span>
-                      </td>
-                      <td className="py-2 px-4">{formatCurrency(deal.purchase_price)}</td>
-                      <td className="py-2 px-4 text-right">
-                        <Button 
-                          variant="ghost" 
-                          onClick={() => setEditingDealId(deal.id)} 
-                          className="text-blue-600 hover:text-blue-800 mr-2"
-                          disabled={!!deletingDealId}
-                        >
-                          Edit
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          onClick={() => handleDeleteDeal(deal.id)} 
-                          className="text-red-600 hover:text-red-800"
-                          disabled={deletingDealId === deal.id}
-                        >
-                          {deletingDealId === deal.id ? 'Deleting...' : 'Delete'}
-                        </Button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              No deals found. Add your first deal below.
-            </div>
-          )
-        ) : (
-          /* Pipeline view */
-          <>
-            <PipelineFilters onFilterChange={setPipelineFilters} />
-            
-            <DealPipeline 
-              deals={filteredPipelineDeals} 
-              supabase={supabase} 
-              onDealUpdated={handleDealUpdated}
-              onDeleteDeal={handleDeleteDeal}
-            />
-            
-            {filteredPipelineDeals.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                No deals match your filter criteria. Try adjusting your filters.
+          {/* After the welcome section and before the deals list: */}
+          <div className="mb-6">
+            <XpSystem />
+          </div>
+
+          {/* Check if any usage limits are reached and show upgrade prompt */}
+          {(usageData.analyses.current >= usageData.analyses.limit ||
+            usageData.offers.current >= usageData.offers.limit ||
+            usageData.imports.current >= usageData.imports.limit) && (
+              <div className="mb-6">
+                <UpgradePrompt 
+                  usageType={
+                    usageData.analyses.current >= usageData.analyses.limit ? 'analyses' :
+                    usageData.offers.current >= usageData.offers.limit ? 'offers' :
+                    'imports'
+                  }
+                  currentUsage={
+                    usageData.analyses.current >= usageData.analyses.limit ? usageData.analyses.current :
+                    usageData.offers.current >= usageData.offers.limit ? usageData.offers.current :
+                    usageData.imports.current
+                  }
+                  limit={
+                    usageData.analyses.current >= usageData.analyses.limit ? usageData.analyses.limit :
+                    usageData.offers.current >= usageData.offers.limit ? usageData.offers.limit :
+                    usageData.imports.limit
+                  }
+                />
               </div>
             )}
-          </>
-        )}
-      </div>
 
-      {/* Add Deal Form */}
-      <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-2xl font-semibold mb-6">Add New Deal</h2>
-        <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
-      </div>
+          {/* Lead Importer */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Import Leads</h2>
+              <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
+                {showLeadImporter ? 'Hide' : 'Show'} Importer
+              </Button>
+            </div>
+            
+            {showLeadImporter && (
+              <LeadImporter />
+            )}
+          </div>
 
-      {/* Add GenieDecision component to deals with analysis data */}
-      {dealToEdit && dealToEdit.analysis_data && (
-        <div className="mt-3">
-          <GenieDecision 
-            decision={
-              (dealToEdit.analysis_data as unknown as AnalysisData).recommendation === 'buy' ? 'buy' : 
-              (dealToEdit.analysis_data as unknown as AnalysisData).recommendation === 'pass' ? 'pass' : 
-              'neutral'
-            }
-            mao={(dealToEdit.analysis_data as unknown as AnalysisData).mao || null}
-            purchasePrice={dealToEdit.purchase_price}
-            dealScore={(dealToEdit.analysis_data as unknown as AnalysisData).deal_score}
-            confidence={(dealToEdit.analysis_data as unknown as AnalysisData).confidence || 75}
-            showDetails={false}
-          />
-        </div>
+          {/* Deal management section */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+              <h2 className="text-2xl font-semibold mb-2 sm:mb-0">Your Deals</h2>
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+                {/* View mode toggle */}
+                <div className="flex border rounded-md overflow-hidden">
+                  <button 
+                    className={`px-3 py-1 text-sm ${viewMode === 'list' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    onClick={() => setViewMode('list')}
+                  >
+                    List View
+                  </button>
+                  <button 
+                    className={`px-3 py-1 text-sm ${viewMode === 'pipeline' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                    onClick={() => setViewMode('pipeline')}
+                  >
+                    Pipeline View
+                  </button>
+                </div>
+                
+                {/* Only show filter in list view */}
+                {viewMode === 'list' && (
+                  <div className="flex items-center space-x-2">
+                    <Label htmlFor="status-filter" className="text-sm whitespace-nowrap">Filter:</Label>
+                    <Select 
+                      defaultValue={statusFilter} 
+                      onValueChange={setStatusFilter}
+                    >
+                      <SelectTrigger id="status-filter" className="w-[160px]">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="All">All Statuses</SelectItem>
+                        {DEAL_STATUSES.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                
+                {/* Add deal button */}
+                <Button onClick={() => document.getElementById('add-deal-form')?.scrollIntoView({ behavior: 'smooth' })}>
+                  + Add New Deal
+                </Button>
+              </div>
+            </div>
+
+            {/* Show appropriate view based on viewMode */}
+            {viewMode === 'list' ? (
+              deals.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                        <th className="py-2 px-4 border-b text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredDeals.map(deal => (
+                        <tr key={deal.id} className="hover:bg-gray-50">
+                          <td className="py-2 px-4">
+                            <Link href={`/deals/${deal.id}`} className="text-blue-600 hover:underline">
+                              {deal.deal_name || 'Unnamed Deal'}
+                            </Link>
+                          </td>
+                          <td className="py-2 px-4">{deal.address || '-'}</td>
+                          <td className="py-2 px-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusStyle(deal.status)}`}>
+                              {deal.status || 'No Status'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4">{formatCurrency(deal.purchase_price)}</td>
+                          <td className="py-2 px-4 text-right">
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => setEditingDealId(deal.id)} 
+                              className="text-blue-600 hover:text-blue-800 mr-2"
+                              disabled={!!deletingDealId}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => handleDeleteDeal(deal.id)} 
+                              className="text-red-600 hover:text-red-800"
+                              disabled={deletingDealId === deal.id}
+                            >
+                              {deletingDealId === deal.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No deals found. Add your first deal below.
+                </div>
+              )
+            ) : (
+              /* Pipeline view */
+              <>
+                <PipelineFilters onFilterChange={setPipelineFilters} />
+                
+                <DealPipeline 
+                  deals={filteredPipelineDeals} 
+                  supabase={supabase} 
+                  onDealUpdated={handleDealUpdated}
+                  onDeleteDeal={handleDeleteDeal}
+                />
+                
+                {filteredPipelineDeals.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No deals match your filter criteria. Try adjusting your filters.
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Add Deal Form */}
+          <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
+            <h2 className="text-2xl font-semibold mb-6">Add New Deal</h2>
+            <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
+          </div>
+
+          {/* Add GenieDecision component to deals with analysis data */}
+          {dealToEdit && dealToEdit.analysis_data && (
+            <div className="mt-3">
+              <GenieDecision 
+                decision={
+                  (dealToEdit.analysis_data as unknown as AnalysisData).recommendation === 'buy' ? 'buy' : 
+                  (dealToEdit.analysis_data as unknown as AnalysisData).recommendation === 'pass' ? 'pass' : 
+                  'neutral'
+                }
+                mao={(dealToEdit.analysis_data as unknown as AnalysisData).mao || null}
+                purchasePrice={dealToEdit.purchase_price}
+                dealScore={(dealToEdit.analysis_data as unknown as AnalysisData).deal_score}
+                confidence={(dealToEdit.analysis_data as unknown as AnalysisData).confidence || 75}
+                showDetails={false}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );
-}
-
-// Helper function to get status badge style
-function getStatusStyle(status: string | null) {
-  switch(status) {
-    case 'Lead': return 'bg-blue-100 text-blue-800';
-    case 'Prospect': return 'bg-purple-100 text-purple-800';
-    case 'Researching': return 'bg-orange-100 text-orange-800';
-    case 'Offer Made': return 'bg-yellow-100 text-yellow-800';
-    case 'Under Contract': return 'bg-green-100 text-green-800';
-    case 'Closed': return 'bg-emerald-100 text-emerald-800';
-    case 'Dead': return 'bg-gray-100 text-gray-800';
-    case 'Lost': return 'bg-red-100 text-red-800';
-    default: return 'bg-gray-100 text-gray-800';
-  }
-}
-
-// Helper function to format currency
-function formatCurrency(value: number | null) {
-  if (value === null) return 'N/A';
-  return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 } 

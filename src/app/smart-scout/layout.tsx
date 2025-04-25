@@ -1,7 +1,7 @@
 import React from 'react';
 
 export const metadata = {
-  title: 'Smart Scout | GenieOS',
+  title: 'Smart Scout | Deal Genie',
   description: 'AI-powered market analysis and deal alerts for real estate investors',
 };
 

@@ -2,7 +2,7 @@ import BatchAnalyzer from "@/components/BatchAnalyzer";
 
 // Server Component wrapper with metadata 
 export const metadata = {
-  title: 'Genie Analyzer | GenieOS',
+  title: 'Genie Analyzer | Deal Genie',
   description: 'Analyze multiple properties at once with AI-powered insights',
 };
 

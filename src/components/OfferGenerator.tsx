@@ -442,7 +442,7 @@ ${offer.contacts.buyer.email}`;
                   >
                     <div className="text-center mb-8">
                       <h2 className="text-2xl font-bold">Real Estate Purchase Offer</h2>
-                      <p className="text-gray-500">Generated via GenieOS</p>
+                      <p className="text-gray-500">Generated via Deal Genie</p>
                     </div>
                     
                     <div className="mb-6">

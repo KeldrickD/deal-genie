@@ -40,7 +40,7 @@ test.describe('Marketing Pages', () => {
 
   test('About page loads', async ({ page }) => {
     await page.goto('/about');
-    await expect(page.getByRole('heading', { name: 'About GenieOS', level: 1 })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'About Deal Genie', level: 1 })).toBeVisible();
     await expect(page.getByText('Keldrick Dickey')).toBeVisible();
   });
 }); 

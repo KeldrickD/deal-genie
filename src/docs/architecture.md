@@ -1,4 +1,4 @@
-# GenieOS – Architecture Overview
+# Deal Genie – Architecture Overview
 
 ---
 

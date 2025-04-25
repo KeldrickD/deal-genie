@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Authentication Status | GenieOS',
+  title: 'Authentication Status | Deal Genie',
   description: 'Check your authentication status and debug any authentication issues',
 };
 

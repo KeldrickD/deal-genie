@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer';
 
 // Replace with your actual production or preview domain
-const BASE_URL = 'https://your-domain.com'; 
+const BASE_URL = 'https://dealgenieos.com'; 
 const PAGES_TO_CHECK = ['/', '/features', '/pricing', '/about'];
 
 async function checkMetaTags(url) {

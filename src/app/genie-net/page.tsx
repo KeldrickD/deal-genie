@@ -208,7 +208,7 @@ export default function GenieNetPage() {
           <TabsContent value="deals">
             <ComingSoonFeature
               title="Community Deal Flow"
-              description="View aggregated and anonymized deal data from the GenieOS community."
+              description="View aggregated and anonymized deal data from the Deal Genie community."
             />
           </TabsContent>
           
@@ -300,7 +300,7 @@ export default function GenieNetPage() {
             <ul className="space-y-2 mb-6 text-gray-700">
               <li className="flex items-start">
                 <span className="mr-2 text-primary">•</span> 
-                <span>Anonymized deal flow from the GenieOS community</span>
+                <span>Anonymized deal flow from the Deal Genie community</span>
               </li>
               <li className="flex items-start">
                 <span className="mr-2 text-primary">•</span> 

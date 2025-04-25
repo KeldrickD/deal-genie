@@ -130,7 +130,7 @@ export default function ApiAccessPage() {
         <Cpu className="h-4 w-4" />
         <AlertTitle>Powered by GenieAI</AlertTitle>
         <AlertDescription>
-          Access the same powerful AI analysis engine that powers the GenieOS platform through our API endpoints. Get property recommendations, deal analysis, and market intelligence programmatically.
+          Access the same powerful AI analysis engine that powers the Deal Genie platform through our API endpoints. Get property recommendations, deal analysis, and market intelligence programmatically.
         </AlertDescription>
       </Alert>
 
@@ -322,7 +322,7 @@ export default function ApiAccessPage() {
 async function analyzeProperty() {
   try {
     const response = await axios.post(
-      'https://api.genieos.com/v1/analysis',
+      'https://api.Deal Genie.com/v1/analysis',
       {
         address: '123 Main St, Anytown, USA',
         listingPrice: 350000,
@@ -360,7 +360,7 @@ async function analyzeProperty() {
 import os
 
 def analyze_property():
-    url = "https://api.genieos.com/v1/analysis"
+    url = "https://api.Deal Genie.com/v1/analysis"
     
     headers = {
         "Authorization": "Bearer " + os.environ.get('GENIE_API_KEY'),
@@ -491,7 +491,7 @@ print(analysis)`}
                     <div>
                       <h4 className="text-sm font-medium mb-2">Android (Kotlin)</h4>
                       <pre className="bg-slate-950 text-slate-50 p-2 rounded-md text-xs overflow-auto">
-                        implementation 'com.genieos:api-sdk:1.0.0'
+                        implementation 'com.Deal Genie:api-sdk:1.0.0'
                       </pre>
                     </div>
                   </CardContent>

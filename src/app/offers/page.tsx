@@ -2,7 +2,7 @@ import OfferGenerator from "@/components/OfferGenerator";
 
 // Server Component wrapper with metadata 
 export const metadata = {
-  title: 'Genie Offer Engine | GenieOS',
+  title: 'Genie Offer Engine | Deal Genie',
   description: 'Create professional real estate offers with automated documents and emails',
 };
 

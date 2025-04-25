@@ -3,12 +3,12 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'About GenieOS – Our Mission & Team',
-  description: 'Learn about the mission behind GenieOS and the team dedicated to revolutionizing real estate investment with AI.',
+  title: 'About Deal Genie – Our Mission & Team',
+  description: 'Learn about the mission behind Deal Genie and the team dedicated to revolutionizing real estate investment with AI.',
   openGraph: {
-    title: 'About GenieOS',
+    title: 'About Deal Genie',
     description: 'Meet the team building the AI operating system for real estate investors.',
-    url: 'https://your-domain.com/about', // Replace with your actual URL
+    url: 'https://dealgenieos.com/about', // Replace with your actual URL
     // images: [{ url: '/api/og?page=about', width: 1200, height: 630 }], // Temporarily commented out
   },
 };
@@ -17,19 +17,19 @@ export default function AboutPage() {
   return (
     <div className="container mx-auto py-16 px-4">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold tracking-tight">About GenieOS</h1>
+        <h1 className="text-4xl font-bold tracking-tight">About Deal Genie</h1>
         <p className="mt-4 text-lg text-muted-foreground">Empowering real estate investors with AI-driven clarity and speed.</p>
       </div>
 
       <section className="mb-16 max-w-3xl mx-auto">
         <h2 className="text-3xl font-semibold mb-4 text-center">Our Mission</h2>
-        <p className="text-center text-lg text-muted-foreground">We're on a mission to empower real estate investors of every size with AI-driven clarity and speed. Gone are the days of guesswork and endless spreadsheets—GenieOS is your strategic partner, turning data into decisions in seconds.</p>
+        <p className="text-center text-lg text-muted-foreground">We're on a mission to empower real estate investors of every size with AI-driven clarity and speed. Gone are the days of guesswork and endless spreadsheets—Deal Genie is your strategic partner, turning data into decisions in seconds.</p>
       </section>
 
       <section className="mb-16 bg-muted/30 py-12 rounded-lg">
         <div className="container max-w-4xl mx-auto px-4">
           <h2 className="text-3xl font-semibold mb-4 text-center">Our Story</h2>
-          <p className="text-lg text-muted-foreground text-center">Founded by veteran investor & entrepreneur <strong>Keldrick Dickey</strong>, GenieOS began as a simple MAO calculator and has evolved into a full-blown AI Operating System. We built it because we were tired of slow deal cycles and missed opportunities—now we want to level the playing field for every investor.</p>
+          <p className="text-lg text-muted-foreground text-center">Founded by veteran investor & entrepreneur <strong>Keldrick Dickey</strong>, Deal Genie began as a simple MAO calculator and has evolved into a full-blown AI Operating System. We built it because we were tired of slow deal cycles and missed opportunities—now we want to level the playing field for every investor.</p>
         </div>
       </section>
 

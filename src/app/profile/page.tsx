@@ -5,7 +5,7 @@ import XpSystem from '@/components/XpSystem';
 import { getUserProfile } from '@/utils/database';
 
 export const metadata = {
-  title: 'Genie Profile | GenieOS',
+  title: 'Genie Profile | Deal Genie',
   description: 'Customize your investment preferences and strategy',
 };
 
