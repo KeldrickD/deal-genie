@@ -1,10 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import ExitStrategySimulator from '@/components/ExitStrategySimulator';
 import { useSearchParams } from 'next/navigation';
 
-export default function ExitStrategyPage() {
+function ExitStrategyContent() {
   const searchParams = useSearchParams();
   
   // Parse query parameters if provided from a deal
@@ -25,5 +25,13 @@ export default function ExitStrategyPage() {
       
       <ExitStrategySimulator initialData={initialData} />
     </div>
+  );
+}
+
+export default function ExitStrategyPage() {
+  return (
+    <Suspense fallback={<div>Loading simulator...</div>}>
+      <ExitStrategyContent />
+    </Suspense>
   );
 } 
