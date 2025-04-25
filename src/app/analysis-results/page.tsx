@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import AnalysisResult from '@/components/AnalysisResult';
 import Link from 'next/link';
@@ -21,7 +21,7 @@ const mockAnalysisData = {
   _timestamp: new Date().toISOString()
 };
 
-export default function AnalysisResultsPage() {
+function AnalysisResultsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const analysisId = searchParams.get('id');
@@ -126,5 +126,13 @@ export default function AnalysisResultsPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function AnalysisResultsPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <AnalysisResultsContent />
+    </Suspense>
   );
 } 
