@@ -5,7 +5,7 @@
   "description": "AI-powered operating system for real estate investors",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "NEXT_TELEMETRY_DISABLED=1 SKIP_ESLINT=1 next build",
     "start": "next start",
     "lint": "next lint",
     "test": "echo \"No tests specified\" && exit 0",

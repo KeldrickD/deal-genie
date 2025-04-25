@@ -361,7 +361,7 @@ def analyze_property():
     url = "https://api.genieos.com/v1/analysis"
     
     headers = {
-        "Authorization": f"Bearer {os.environ.get('GENIE_API_KEY')}",
+        "Authorization": "Bearer " + os.environ.get('GENIE_API_KEY'),
         "Content-Type": "application/json"
     }
     
@@ -377,7 +377,7 @@ def analyze_property():
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
-        print(f"Error analyzing property: {e}")
+        print("Error analyzing property: " + str(e))
         return None`}
                     </pre>
                   </CardContent>
