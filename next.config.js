@@ -1,14 +1,18 @@
 /** @type {import('next').NextConfig} */
 
+// More specific CSP based on known external connections
 const ContentSecurityPolicy = `
-  default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' *.googletagmanager.com;
-  child-src 'self';
-  style-src 'self' 'unsafe-inline';
-  img-src * blob: data:;
-  media-src 'none';
-  connect-src *;
-  font-src 'self';
+  default-src 'self'; 
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.googletagmanager.com; 
+  style-src 'self' 'unsafe-inline'; 
+  img-src 'self' data: blob:; 
+  font-src 'self'; 
+  connect-src 'self' https://*.supabase.co https://api.openai.com https://www.google-analytics.com; 
+  frame-src 'self';
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+  frame-ancestors 'none';
 `;
 
 const nextConfig = {
@@ -42,27 +46,14 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: '/:path*', // Apply security headers to all paths
         headers: [
           {
             key: 'Content-Security-Policy',
-            // IMPORTANT: Customize this policy based on your specific needs!
-            // Allow Google Analytics, allow inline scripts/styles (common for UI libs/Next.js),
-            // allow all images and connections for now.
             value: ContentSecurityPolicy.replace(/\s{2,}/g, ' ').trim(), 
           },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'origin-when-cross-origin',
-          },
+          // X-Content-Type-Options, X-Frame-Options, Referrer-Policy are now handled in middleware.ts for consistency 
+          // but can be kept here if you prefer global application via next.config.js
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',

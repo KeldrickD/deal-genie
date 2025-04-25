@@ -25,7 +25,9 @@ export default defineConfig({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     baseURL: process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:3000',
-
+    headless: true, // Run tests headlessly
+    viewport: { width: 1280, height: 720 }, // Standard viewport
+    ignoreHTTPSErrors: true, // Useful for local dev with self-signed certs
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
   },
