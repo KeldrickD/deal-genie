@@ -37,27 +37,36 @@ export async function GET(req: NextRequest) {
     const interRegular = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Regular.ttf');
     const interBold = await getFontData('https://raw.githubusercontent.com/rsms/inter/main/docs/Inter-Bold.ttf');
 
-    // Define style object separately
-    const styles = {
-      height: '100%',
-      width: '100%',
-      display: 'flex',
-      flexDirection: 'column' as const, // Explicitly type if needed
-      alignItems: 'center' as const,
-      justifyContent: 'center' as const,
-      backgroundColor: '#111827',
-      color: 'white',
-      padding: '60px',
-      fontFamily: '"Inter"',
-      textAlign: 'center' as const,
-    };
+    // **Workaround: Use React/JSX to render to an HTML string first**
+    // This seems redundant, but isolates the JSX processing from ImageResponse
+    // NOTE: @vercel/og expects JSX directly, passing HTML string is NOT standard usage 
+    // and might not work as expected or could break in future updates. 
+    // Consider this a temporary measure if the build consistently fails on JSX.
+    
+    // **Reverting to standard JSX approach as HTML string is not supported**
+    // Let's try the most basic JSX structure possible. 
 
     return new ImageResponse(
       (
-        <div style={styles}> 
-          <div style={{ fontSize: 60, fontWeight: 700, marginBottom: 30 }}>{title}</div>
-          <div style={{ fontSize: 32, opacity: 0.8, marginBottom: 40 }}>{subtitle}</div>
-          <div style={{ fontSize: 24, opacity: 0.6 }}>{domain}</div>
+        <div
+          style={{
+            display: 'flex',       // Use flexbox
+            height: '100%',       // Full height
+            width: '100%',        // Full width
+            alignItems: 'center', // Center vertically
+            justifyContent: 'center', // Center horizontally
+            flexDirection: 'column', // Stack items vertically
+            backgroundColor: '#111827', // Dark background
+            fontSize: 40,         // Base font size
+            color: 'white',       // Text color
+            fontFamily: '"Inter"'  // Font family
+          }}
+        >
+          <div style={{ marginTop: 'auto', marginBottom: 'auto' }}> {/* Vertical centering container */}
+             <div style={{ fontSize: 60, fontWeight: 700, marginBottom: 20 }}>{title}</div>
+             <div style={{ fontSize: 32, opacity: 0.8 }}>{subtitle}</div>
+          </div>
+          <div style={{ position: 'absolute', bottom: 40, fontSize: 24, opacity: 0.6 }}>{domain}</div>
         </div>
       ),
       {
@@ -69,6 +78,7 @@ export async function GET(req: NextRequest) {
         ],
       },
     );
+
   } catch (e: any) {
     console.error(`Failed to generate OG image: ${e.message}`);
     return new Response(`Failed to generate image`, { status: 500 });
