@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Chrome, Zap, Shield, Globe, Clock, ArrowRight } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Chrome, Zap, Shield, Globe, Clock, ArrowRight, MousePointer, Database, Eye, BrainCircuit, Laptop } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
