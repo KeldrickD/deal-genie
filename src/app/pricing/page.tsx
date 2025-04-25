@@ -27,7 +27,7 @@ export default function PricingPage() {
         <PricingCard
           plan="Free"
           price="$0"
-          description="Up to 3 analyses / month"
+          description="Up to 5 analyses / month"
           features={[
             "Basic Deal Analyzer",
             "Genie Offer Engine (Limited)",
