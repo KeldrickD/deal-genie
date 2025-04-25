@@ -20,14 +20,15 @@ import {
   Network
 } from 'lucide-react';
 import type { Metadata } from 'next';
+import { SITE } from '@/lib/config';
 
 export const metadata: Metadata = {
-  title: 'GenieOS Features – AI Real Estate OS',
-  description: 'Discover GenieOS&apos;s AI-powered deal analysis, offer generation, and market insights.',
+  title: `${SITE.name} Features – AI Real Estate OS`,
+  description: `Discover ${SITE.name}'s AI-powered deal analysis, offer generation, and market insights.`,
   openGraph: {
-    title: 'GenieOS Features',
+    title: `${SITE.name} Features`,
     description: 'AI-driven property analyzer, offer engine, Smart Scout & more.',
-    url: 'https://your-domain.com/features', // Replace with your actual URL
+    url: 'https://dealgenie.com/features', // Replace with your actual URL
     // images: [
     //   {
     //     url: '/api/og?page=features',
@@ -44,7 +45,7 @@ export default function FeaturesPage() {
       <div className="text-center mb-12">
         <Badge variant="outline" className="mb-2">Core Features</Badge>
         <h1 className="text-4xl font-bold tracking-tight">Unlock Your Investment Potential</h1>
-        <p className="mt-4 text-lg text-muted-foreground">GenieOS combines AI-powered analysis with intuitive tools to help you make smarter, faster decisions.</p>
+        <p className="mt-4 text-lg text-muted-foreground">{SITE.name} combines AI-powered analysis with intuitive tools to help you make smarter, faster decisions.</p>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -52,7 +53,7 @@ export default function FeaturesPage() {
         <FeatureCard
           icon={BrainCircuit}
           title="AI Deal Analyzer"
-          description="Instantly calculate ARV, repair estimates, MAO, and cash-on-cash ROI. GenieOS returns a clear Go/No-Go decision with your personal risk profile baked in."
+          description="Instantly calculate ARV, repair estimates, MAO, and cash-on-cash ROI. Deal Genie returns a clear Go/No-Go decision with your personal risk profile baked in."
         />
 
         {/* Offer Generator */}

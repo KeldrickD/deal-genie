@@ -1,58 +1,27 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { SITE } from "@/lib/config"; // Import SITE config
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex flex-col min-h-screen">
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-indigo-600 to-purple-600 py-20 text-white">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row items-center">
-            <div className="md:w-1/2 mb-10 md:mb-0">
-              <h1 className="text-4xl md:text-5xl font-bold mb-4">
-                Think like a top 1% investor. Operate like a full team.
-              </h1>
-              <p className="text-xl mb-8">
-                GenieOS is the AI-powered operating system for real estate investors that helps you analyze deals, generate offers, and scout the best markets.
-              </p>
-              <div className="flex flex-wrap gap-4">
-                <Link href="/signup" className="bg-white text-indigo-600 py-3 px-6 rounded-md font-bold hover:bg-gray-100">
-                  Get Started Free
-                </Link>
-                <Link href="/demo" className="bg-transparent border-2 border-white text-white py-3 px-6 rounded-md font-bold hover:bg-white/10">
-                  Watch Demo
-                </Link>
-              </div>
-            </div>
-            <div className="md:w-1/2 flex justify-center">
-              <div className="bg-white rounded-lg shadow-xl p-4 max-w-md">
-                <div className="bg-gray-50 p-4 rounded-md mb-4">
-                  <div className="flex items-center mb-2">
-                    <div className="h-4 w-4 rounded-full bg-green-500 mr-2"></div>
-                    <span className="font-medium">Genie says BUY</span>
-                  </div>
-                  <h3 className="font-bold text-gray-800 text-xl mb-2">123 Main Street, Houston TX</h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-500">ARV</p>
-                      <p className="font-bold">$265,000</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Rehab Cost</p>
-                      <p className="font-bold">$35,000-$42,000</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">MAO</p>
-                      <p className="font-bold">$157,500</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">Cash-on-Cash ROI</p>
-                      <p className="font-bold text-green-600">18.3%</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+      <section className="flex-grow flex items-center justify-center bg-gradient-to-b from-indigo-50 via-white to-white py-24">
+        <div className="container mx-auto px-4 text-center">
+          <h1 className="text-5xl md:text-7xl font-bold text-gray-900 mb-6">
+            The AI Operating System <br /> for <span className="text-indigo-600">Real Estate Deals</span>
+          </h1>
+          <p className="text-xl text-gray-600 mb-10 max-w-3xl mx-auto">
+            {SITE.subtitle} - Analyze properties, generate offers, find buyers, and manage your pipeline, all powered by AI.
+          </p>
+          <div className="space-x-4">
+            <Button size="lg" asChild>
+              <Link href="/signup">Get Started Free</Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/features">Learn More</Link>
+            </Button>
           </div>
         </div>
       </section>
@@ -97,7 +66,7 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <div className="flex flex-col md:flex-row justify-between mb-8">
             <div className="mb-6 md:mb-0">
-              <span className="text-2xl font-bold">🔮 GenieOS</span>
+              <span className="text-2xl font-bold">🔮 {SITE.name}</span>
               <p className="mt-2 text-gray-400 max-w-xs">
                 The AI-powered operating system for real estate investors.
               </p>
@@ -129,7 +98,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-700 pt-8 mt-8 text-sm text-gray-400">
-            <p>&copy; {new Date().getFullYear()} GenieOS. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} {SITE.name}. All rights reserved.</p>
           </div>
         </div>
       </footer>
