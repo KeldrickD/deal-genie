@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -153,7 +155,7 @@ export default function ApiAccessPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-green-500">GET</Badge>
-                        <code className="text-sm font-mono">/api/v1/properties/{id}</code>
+                        <code className="text-sm font-mono">{'/api/v1/properties/{id}'}</code>
                       </div>
                       <Badge variant="outline">Fetch property details</Badge>
                     </div>
@@ -234,7 +236,7 @@ export default function ApiAccessPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge className="bg-purple-500">GET</Badge>
-                        <code className="text-sm font-mono">/api/v1/markets/{zip_code}</code>
+                        <code className="text-sm font-mono">{'/api/v1/markets/{zip_code}'}</code>
                       </div>
                       <Badge variant="outline">Market data</Badge>
                     </div>
@@ -461,11 +463,11 @@ console.log(analysis);`}
                     <pre className="bg-slate-950 text-slate-50 p-3 rounded-md text-xs overflow-auto">
 {`from genie_api import GenieAPI
 
-genie = GenieAPI(api_key='YOUR_API_KEY')
+genie = GenieAPI(api_key=\'YOUR_API_KEY\')
 
 # Analyze a property
 analysis = genie.properties.analyze(
-  address='123 Main St, Anytown, USA',
+  address=\'123 Main St, Anytown, USA\',
   listing_price=350000
 )
 
