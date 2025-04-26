@@ -269,3 +269,93 @@ NEXT_PUBLIC_ENABLE_GENIE_NET=false
 ```
 
 Set `NEXT_PUBLIC_ENABLE_GENIE_NET=true` to enable GenieNet features for testing.
+
+## Setup Instructions
+
+### Database Setup
+
+If you see errors related to missing database tables, follow these steps:
+
+1. Go to your Supabase project dashboard (https://app.supabase.io)
+2. Navigate to the SQL Editor
+3. Run the following SQL script to create missing tables:
+
+```sql
+-- Create deal_deadlines table
+CREATE TABLE IF NOT EXISTS public.deal_deadlines (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deal_id UUID NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  description TEXT,
+  due_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Add index for better performance when querying by deal
+CREATE INDEX IF NOT EXISTS idx_deal_deadlines_deal_id ON public.deal_deadlines(deal_id);
+
+-- Table for tracking deal status history
+CREATE TABLE IF NOT EXISTS public.deal_history (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  deal_id UUID NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
+  action TEXT NOT NULL,
+  details JSONB DEFAULT '{}',
+  previous_status TEXT,
+  new_status TEXT,
+  changed_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  changed_by UUID REFERENCES auth.users(id)
+);
+
+-- Add index for better performance when querying by deal
+CREATE INDEX IF NOT EXISTS idx_deal_history_deal_id ON public.deal_history(deal_id);
+
+-- Add RLS policies to secure these tables
+ALTER TABLE public.deal_deadlines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.deal_history ENABLE ROW LEVEL SECURITY;
+
+-- Deadlines can be read/modified by the deal owner
+CREATE POLICY "Deal owners can CRUD their deadlines"
+ON public.deal_deadlines
+USING (
+  deal_id IN (
+    SELECT id FROM public.deals WHERE user_id = auth.uid()
+  )
+);
+
+-- History can be read by the deal owner, but only inserted/updated by the system
+CREATE POLICY "Deal owners can read their history"
+ON public.deal_history FOR SELECT
+USING (
+  deal_id IN (
+    SELECT id FROM public.deals WHERE user_id = auth.uid()
+  )
+);
+
+CREATE POLICY "Deal owners can insert their history"
+ON public.deal_history FOR INSERT
+WITH CHECK (
+  deal_id IN (
+    SELECT id FROM public.deals WHERE user_id = auth.uid()
+  )
+);
+```
+
+### Cookie Parsing Issue
+
+If you're seeing cookie parsing errors in the browser console, make sure you're:
+
+1. Using the latest version of the Supabase client
+2. Running the application on a properly configured domain/subdomain
+
+### React Component Unmounting Issue
+
+This has been fixed in the codebase by:
+1. Using refs to track component mounting state
+2. Checking if a component is still mounted before updating state
+
+## Development
+
+```
+npm run dev
+```

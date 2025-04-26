@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '@/types/supabase';
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from 'sonner';
-import { CalendarIcon, CheckCircle2, Clock, Trash2 } from 'lucide-react';
+import { CalendarIcon, CheckCircle2, Clock, Trash2, PlusCircle } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { format } from 'date-fns';
+import CreateTablesNotice from './CreateTablesNotice';
 
 type Deadline = Database['public']['Tables']['deal_deadlines']['Row'];
 type Deal = Database['public']['Tables']['deals']['Row'];
@@ -22,6 +25,8 @@ export default function DealTimelineManager({ deal, supabase }: DealTimelineMana
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tablesExist, setTablesExist] = useState(true);
+  const isMounted = useRef(true);
   
   // Form state for new deadline
   const [showAddForm, setShowAddForm] = useState(false);
@@ -30,14 +35,23 @@ export default function DealTimelineManager({ deal, supabase }: DealTimelineMana
   const [newDueDate, setNewDueDate] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Load deadlines when component mounts
   useEffect(() => {
-    if (supabase && deal.id) {
-      loadDeadlines();
-    }
-  }, [supabase, deal.id]);
+    // Set up the mounted flag
+    isMounted.current = true;
+    
+    // Clean up function to prevent state updates after unmount
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-  async function loadDeadlines() {
+  useEffect(() => {
+    if (supabase && deal?.id) {
+      fetchDeadlines();
+    }
+  }, [supabase, deal?.id]);
+
+  const fetchDeadlines = async () => {
     if (!supabase) return;
     
     setIsLoading(true);
@@ -50,44 +64,74 @@ export default function DealTimelineManager({ deal, supabase }: DealTimelineMana
         .eq('deal_id', deal.id)
         .order('due_date', { ascending: true });
       
-      if (error) throw error;
-      setDeadlines(data || []);
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.log('deal_deadlines table does not exist yet');
+          if (isMounted.current) {
+            setTablesExist(false);
+            setDeadlines([]);
+          }
+        } else {
+          throw error;
+        }
+      } else if (isMounted.current) {
+        setDeadlines(data || []);
+        setTablesExist(true);
+      }
     } catch (err: any) {
       console.error('Error loading deadlines:', err);
-      setError('Failed to load deadlines. Please try again.');
-      toast.error('Failed to load deadlines');
+      if (isMounted.current) {
+        setError('Failed to load deadlines. Please try again.');
+        toast.error('Failed to load deadlines');
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
-  }
+  };
 
   async function addDeadline(e: React.FormEvent) {
     e.preventDefault();
-    if (!supabase || !newName || !newDueDate) return;
     
-    setIsSubmitting(true);
+    if (!supabase) {
+      toast.error('Not authenticated');
+      return;
+    }
+    
+    // Validate required fields
+    if (!newName.trim() || !newDueDate) {
+      toast.error('Name and due date are required');
+      return;
+    }
     
     try {
+      setIsSubmitting(true);
+      setError(null);
+      
+      // Add deadline to database
       const { error } = await supabase
         .from('deal_deadlines')
         .insert({
           deal_id: deal.id,
-          name: newName,
-          description: newDescription || null,
+          title: newName.trim(),
+          description: newDescription.trim() || null,
           due_date: new Date(newDueDate).toISOString(),
-          completed: false
         });
       
       if (error) throw error;
       
-      toast.success('Deadline added successfully');
+      toast.success('Deadline added');
+      
+      // Reset form
       setNewName('');
       setNewDescription('');
       setNewDueDate('');
       setShowAddForm(false);
-      loadDeadlines();
+      fetchDeadlines();
     } catch (err: any) {
       console.error('Error adding deadline:', err);
+      setError(err.message || 'Failed to add deadline');
       toast.error('Failed to add deadline');
     } finally {
       setIsSubmitting(false);
@@ -172,143 +216,99 @@ export default function DealTimelineManager({ deal, supabase }: DealTimelineMana
     return 'bg-blue-50 border-blue-200'; // Upcoming
   }
 
+  const formatDate = (dateString: string) => {
+    try {
+      return format(new Date(dateString), 'MMM d, yyyy');
+    } catch (err) {
+      return 'Invalid date';
+    }
+  };
+
+  if (!tablesExist) {
+    return (
+      <CreateTablesNotice 
+        tableName="deal_deadlines" 
+        onRetry={fetchDeadlines} 
+      />
+    );
+  }
+
   return (
-    <div className="border rounded-lg p-4 bg-white shadow-sm">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">Timeline & Milestones</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          {showAddForm ? 'Cancel' : '+ Add Deadline'}
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>Timeline & Deadlines</CardTitle>
+        <Button variant="outline" size="sm">
+          <PlusCircle className="h-4 w-4 mr-2" />
+          Add Deadline
         </Button>
-      </div>
-      
-      {/* Add Deadline Form */}
-      {showAddForm && (
-        <form onSubmit={addDeadline} className="mb-6 p-4 border rounded-md bg-gray-50">
-          <h4 className="text-md font-medium mb-3">Add New Deadline</h4>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="deadlineName">Name</Label>
-              <Input
-                id="deadlineName"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                placeholder="e.g., Inspection Period"
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="deadlineDescription">Description (Optional)</Label>
-              <Textarea
-                id="deadlineDescription"
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-                placeholder="Add any relevant details..."
-                rows={2}
-              />
-            </div>
-            <div>
-              <Label htmlFor="deadlineDueDate">Due Date</Label>
-              <Input
-                id="deadlineDueDate"
-                type="date"
-                value={newDueDate}
-                onChange={(e) => setNewDueDate(e.target.value)}
-                required
-              />
-            </div>
-            <div className="flex justify-end space-x-2">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                onClick={() => setShowAddForm(false)}
-                disabled={isSubmitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isSubmitting || !newName || !newDueDate}>
-                {isSubmitting ? 'Adding...' : 'Add Deadline'}
-              </Button>
-            </div>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-6">
+            <div className="animate-pulse">Loading deadlines...</div>
           </div>
-        </form>
-      )}
-      
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 text-red-800 p-3 rounded-md mb-4">
-          {error}
-        </div>
-      )}
-      
-      {/* Loading State */}
-      {isLoading && (
-        <div className="text-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-600">Loading deadlines...</p>
-        </div>
-      )}
-      
-      {/* Deadlines List */}
-      {!isLoading && deadlines.length === 0 && (
-        <div className="text-center p-4 bg-gray-50 rounded-md">
-          <p className="text-gray-500">No deadlines added yet. Add your first deadline to track important dates.</p>
-        </div>
-      )}
-      
-      {!isLoading && deadlines.length > 0 && (
-        <div className="space-y-3">
-          {deadlines.map(deadline => (
-            <div 
-              key={deadline.id} 
-              className={`border p-3 rounded-md ${getStatusClass(deadline)} relative`}
+        ) : error ? (
+          <div className="text-red-500 py-3">
+            {error}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="ml-3"
+              onClick={fetchDeadlines}
             >
-              <div className="flex justify-between">
+              Retry
+            </Button>
+          </div>
+        ) : deadlines.length === 0 ? (
+          <div className="text-center py-6 text-gray-500">
+            <CalendarIcon className="mx-auto h-8 w-8 mb-2 opacity-50" />
+            <p>No deadlines set for this deal yet.</p>
+            <p className="text-sm">Add deadlines to keep track of important dates.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {deadlines.map((deadline) => (
+              <div 
+                key={deadline.id} 
+                className={`p-3 rounded-lg border flex items-start gap-3 ${
+                  deadline.completed 
+                    ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900' 
+                    : 'bg-white dark:bg-gray-950'
+                }`}
+              >
+                {deadline.completed ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                ) : (
+                  <Clock className="h-5 w-5 text-blue-500 mt-0.5" />
+                )}
                 <div className="flex-1">
-                  <div className="flex items-start">
-                    <button 
-                      onClick={() => toggleDeadlineCompletion(deadline)}
-                      className="mr-2 mt-1 text-gray-500 hover:text-green-600 focus:outline-none"
-                      aria-label={deadline.completed ? "Mark as incomplete" : "Mark as complete"}
-                    >
-                      <CheckCircle2 
-                        className={`h-5 w-5 ${deadline.completed ? 'text-green-600 fill-green-600' : 'text-gray-300'}`} 
-                      />
-                    </button>
-                    <div>
-                      <h4 className={`font-medium ${deadline.completed ? 'line-through text-gray-500' : ''}`}>
-                        {deadline.name}
-                      </h4>
-                      {deadline.description && (
-                        <p className="text-sm text-gray-600">{deadline.description}</p>
-                      )}
-                      <div className="flex items-center mt-1">
-                        <CalendarIcon className="h-3 w-3 mr-1 text-gray-500" />
-                        <span className="text-xs text-gray-600">
-                          {formatDueDate(deadline.due_date)}
-                        </span>
-                        <Clock className="h-3 w-3 ml-3 mr-1 text-gray-500" />
-                        <DeadlineStatus deadline={deadline} />
-                      </div>
-                    </div>
+                  <h4 className={`font-medium ${deadline.completed ? 'line-through text-gray-500' : ''}`}>
+                    {deadline.title}
+                  </h4>
+                  {deadline.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {deadline.description}
+                    </p>
+                  )}
+                  <div className="text-xs text-gray-500 mt-2">
+                    Due: {formatDate(deadline.due_date)}
                   </div>
                 </div>
-                <button 
-                  onClick={() => deleteDeadline(deadline.id)}
-                  className="text-gray-400 hover:text-red-600 focus:outline-none"
-                  aria-label="Delete deadline"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="h-7 px-2"
+                  >
+                    {deadline.completed ? 'Undo' : 'Complete'}
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

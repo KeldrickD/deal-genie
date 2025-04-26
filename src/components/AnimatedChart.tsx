@@ -76,18 +76,16 @@ export default function AnimatedChart({
           </motion.div>
         )}
         
-        {!isLoading && !error && (
-          <motion.div
-            key="content"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isVisible ? 1 : 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="h-full w-full"
-          >
-            {children}
-          </motion.div>
-        )}
+        <motion.div
+          key="content"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: isVisible ? 1 : 0 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+          className="h-full w-full"
+        >
+          {children}
+        </motion.div>
       </AnimatePresence>
     </div>
   );

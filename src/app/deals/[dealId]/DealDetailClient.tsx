@@ -1,6 +1,6 @@
 'use client'; // Mark as Client Component
 
-import React, { useState, useEffect, useTransition } from 'react';
+import React, { useState, useEffect, useTransition, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatCurrency } from '@/lib/utils';
@@ -113,20 +113,35 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
     enforceLimit 
   } = useUsageLimit();
 
+  // Component mounted ref to prevent state updates after unmount
+  const isMounted = useRef(true);
+
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+      console.log('CLIENT: Component unmounting');
+    };
+  }, []);
+
   // Add error handling
   useEffect(() => {
     // Add error listener
     const originalOnError = window.onerror;
     window.onerror = function(message, source, lineno, colno, error) {
-      console.error('CLIENT ERROR CAUGHT:', { message, source, lineno, colno, error });
-      toast.error(`Error: ${message}`);
+      if (isMounted.current) {
+        console.error('CLIENT ERROR CAUGHT:', { message, source, lineno, colno, error });
+        toast.error(`Error: ${message}`);
+      }
       return originalOnError ? originalOnError(message, source, lineno, colno, error) : false;
     };
     
     // Add unhandled rejection listener
     const rejectionHandler = (event: PromiseRejectionEvent) => {
-      console.error('CLIENT UNHANDLED REJECTION:', event.reason);
-      toast.error(`Promise Error: ${event.reason}`);
+      if (isMounted.current) {
+        console.error('CLIENT UNHANDLED REJECTION:', event.reason);
+        toast.error(`Promise Error: ${event.reason}`);
+      }
     };
     window.addEventListener('unhandledrejection', rejectionHandler);
     
@@ -136,21 +151,24 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
     return () => {
       window.onerror = originalOnError;
       window.removeEventListener('unhandledrejection', rejectionHandler);
-      console.log('CLIENT: Component unmounting');
     };
   }, []);
 
   useEffect(() => {
-    console.log('CLIENT: Fetching deal data for dealId:', dealId);
-    console.log('CLIENT: Supabase client available:', !!supabaseClient);
-    fetchDealData();
+    if (isMounted.current) {
+      console.log('CLIENT: Fetching deal data for dealId:', dealId);
+      console.log('CLIENT: Supabase client available:', !!supabaseClient);
+      fetchDealData();
+    }
   }, [dealId, supabaseClient]);
 
   const fetchDealData = async () => {
     try {
-      if (!supabaseClient) {
-        console.error('Supabase client is not available');
-        toast.error('Authentication error: Unable to access data');
+      if (!supabaseClient || !isMounted.current) {
+        console.error('Supabase client is not available or component unmounted');
+        if (isMounted.current) {
+          toast.error('Authentication error: Unable to access data');
+        }
         return;
       }
 
@@ -168,12 +186,16 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
           if (deadlinesError.code === '404' || deadlinesError.message?.includes('does not exist')) {
             console.log('CLIENT: deal_deadlines table does not exist yet');
             // Set empty deadlines array
-            setDeadlines([]);
+            if (isMounted.current) {
+              setDeadlines([]);
+            }
           } else {
             console.error('Error loading deadlines:', deadlinesError);
-            toast.error('Failed to load deadlines');
+            if (isMounted.current) {
+              toast.error('Failed to load deadlines');
+            }
           }
-        } else {
+        } else if (isMounted.current) {
           setDeadlines(deadlinesData || []);
           console.log('CLIENT: Fetched deadlines:', deadlinesData?.length);
         }
@@ -193,12 +215,16 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
           if (historyError.code === '404' || historyError.message?.includes('does not exist')) {
             console.log('CLIENT: deal_history table does not exist yet');
             // Set empty history array
-            setStatusHistory([]);
+            if (isMounted.current) {
+              setStatusHistory([]);
+            }
           } else {
             console.error('Error loading deal history:', historyError);
-            toast.error('Failed to load deal history');
+            if (isMounted.current) {
+              toast.error('Failed to load deal history');
+            }
           }
-        } else {
+        } else if (isMounted.current) {
           setStatusHistory(historyData || []);
           console.log('CLIENT: Fetched history items:', historyData?.length);
         }
@@ -208,7 +234,9 @@ export default function DealDetailClient({ dealId, initialDeal }: DealDetailClie
       
     } catch (error) {
       console.error('Error fetching deal data:', error);
-      toast.error('Failed to load deal timeline data');
+      if (isMounted.current) {
+        toast.error('Failed to load deal timeline data');
+      }
     }
   };
 
