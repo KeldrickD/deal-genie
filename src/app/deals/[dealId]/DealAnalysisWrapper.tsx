@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useUsageLimit } from '@/hooks/useUsageLimit';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { FEATURE_NAMES } from '@/lib/config';
 import UpgradePromptModal from '@/components/UpgradePromptModal';
-import { UsageLimits } from '@/components/UsageLimits';
 
 interface DealAnalysisWrapperProps {
   children: React.ReactNode;
@@ -22,12 +21,14 @@ export default function DealAnalysisWrapper({
   isAnalyzing,
   hasAnalysis
 }: DealAnalysisWrapperProps) {
+  // Reference to track if component is mounted
+  const isMounted = useRef(true);
+
   const { 
     checkLimit, 
-    enforceLimit, 
-    usageSummary, 
+    enforceLimit,
     getUsageSummary,
-    showUpgradePrompt,
+    showingUpgradePrompt: showUpgradePrompt,
     promptFeature,
     closeUpgradePrompt
   } = useUsageLimit();
@@ -35,22 +36,46 @@ export default function DealAnalysisWrapper({
   const [initialized, setInitialized] = useState(false);
   const [canAnalyze, setCanAnalyze] = useState(true);
   const [limitInfo, setLimitInfo] = useState<{currentUsage: number; limit: number} | null>(null);
+  const [usageLimitError, setUsageLimitError] = useState<boolean>(false);
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
   
   // Get usage summary when component mounts
   useEffect(() => {
-    getUsageSummary();
+    getUsageSummary().catch(err => {
+      console.error('Error loading usage summary:', err);
+      if (isMounted.current) {
+        setUsageLimitError(true);
+      }
+    });
   }, [getUsageSummary]);
   
   // Initial check for limits
   useEffect(() => {
     const checkAnalysisLimit = async () => {
-      const result = await checkLimit(FEATURE_NAMES.ANALYZE);
-      setCanAnalyze(!result.hasReachedLimit);
-      setLimitInfo({
-        currentUsage: result.currentUsage,
-        limit: result.limit
-      });
-      setInitialized(true);
+      try {
+        const result = await checkLimit(FEATURE_NAMES.ANALYZE);
+        if (isMounted.current) {
+          setCanAnalyze(!result.hasReachedLimit);
+          setLimitInfo({
+            currentUsage: result.currentUsage,
+            limit: result.limit
+          });
+          setInitialized(true);
+        }
+      } catch (error) {
+        console.error('Error checking limit:', error);
+        if (isMounted.current) {
+          setCanAnalyze(true); // Default to allowing analysis if check fails
+          setInitialized(true);
+          setUsageLimitError(true);
+        }
+      }
     };
     
     checkAnalysisLimit();
@@ -59,23 +84,45 @@ export default function DealAnalysisWrapper({
   // Handle the analyze button click
   const handleAnalyze = async () => {
     // Enforce usage limit
-    const limitResult = await enforceLimit(FEATURE_NAMES.ANALYZE, {
-      context: 'deal_analysis',
-      timestamp: new Date().toISOString()
-    }, { showPrompt: true });
-    
-    if (limitResult.success) {
-      // If we have usage left, allow the analysis
-      setLimitInfo({
-        currentUsage: (limitResult.currentUsage || 0),
-        limit: (limitResult.limit || 0)
+    try {
+      const limitResult = await enforceLimit('ANALYZE', {
+        metadata: {
+          context: 'deal_analysis',
+          timestamp: new Date().toISOString()
+        }
       });
       
-      // Call the original analyze function
-      await onAnalyze();
-    } else {
-      // No usage left, cannot analyze
-      setCanAnalyze(false);
+      if (isMounted.current) {
+        // If we have usage left, allow the analysis
+        if (typeof limitResult === 'object' && limitResult !== null) {
+          const { currentUsage, limit, success } = limitResult;
+          
+          if (typeof currentUsage === 'number' && typeof limit === 'number') {
+            setLimitInfo({ currentUsage, limit });
+          }
+          
+          // Call the original analyze function if successful
+          if (success) {
+            await onAnalyze();
+          } else {
+            // No usage left, cannot analyze
+            setCanAnalyze(false);
+          }
+        } else if (limitResult === true) {
+          // Old API might return true, still allow analysis
+          await onAnalyze();
+        } else {
+          // Couldn't use feature
+          setCanAnalyze(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error enforcing limit:', error);
+      // If there's an error with the usage limit, still allow analysis
+      if (isMounted.current) {
+        setUsageLimitError(true);
+        await onAnalyze();
+      }
     }
   };
   
@@ -90,15 +137,15 @@ export default function DealAnalysisWrapper({
   
   return (
     <>
-      {/* Usage limit modal */}
+      {/* Usage limit modal - only render if promptFeature exists */}
       {showUpgradePrompt && promptFeature && (
         <UpgradePromptModal
           isOpen={showUpgradePrompt}
           onClose={closeUpgradePrompt}
-          feature={promptFeature.feature}
-          currentUsage={promptFeature.currentUsage}
-          limit={promptFeature.limit}
-          featureDisplayName={promptFeature.featureDisplayName}
+          feature={promptFeature.displayName || ''}
+          currentUsage={0}
+          limit={0}
+          featureDisplayName={promptFeature.displayName || ''}
         />
       )}
       
@@ -117,16 +164,32 @@ export default function DealAnalysisWrapper({
             <div className="text-center py-6">
               <p className="text-gray-500 mb-6">Generate an analysis of this deal based on the provided data.</p>
               
-              {/* Usage stats component */}
-              {limitInfo && limitInfo.limit !== Infinity && (
+              {/* Usage stats component - only show if no errors */}
+              {!usageLimitError && limitInfo && limitInfo.limit !== Infinity && (
                 <div className="mb-6 max-w-md mx-auto">
-                  <UsageLimits standalone={false} showSingleFeature={FEATURE_NAMES.ANALYZE} />
+                  {/* Simple usage progress bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Deal Analysis</span>
+                      <span className="text-sm text-gray-500">
+                        {limitInfo.currentUsage} / {limitInfo.limit}
+                      </span>
+                    </div>
+                    <div className="bg-gray-100">
+                      <div 
+                        className="h-2 bg-blue-600" 
+                        style={{ 
+                          width: `${Math.min(100, (limitInfo.currentUsage / limitInfo.limit) * 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                  </div>
                 </div>
               )}
               
               <Button 
                 onClick={handleAnalyze} 
-                disabled={isAnalyzing || !canAnalyze} 
+                disabled={isAnalyzing || (!usageLimitError && !canAnalyze)} 
                 className="w-full md:w-auto"
               >
                 {isAnalyzing ? (
@@ -134,14 +197,14 @@ export default function DealAnalysisWrapper({
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Analyzing...
                   </>
-                ) : !canAnalyze ? (
+                ) : !canAnalyze && !usageLimitError ? (
                   'Usage Limit Reached'
                 ) : (
                   'Analyze Deal'
                 )}
               </Button>
               
-              {!canAnalyze && (
+              {!canAnalyze && !usageLimitError && (
                 <div className="mt-3 text-sm text-red-600">
                   You've reached your monthly usage limit for analyses. 
                   <Button 
