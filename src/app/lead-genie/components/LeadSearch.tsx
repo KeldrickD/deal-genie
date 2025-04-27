@@ -8,17 +8,19 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Building, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import LeadCard from './LeadCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 
 type Lead = {
   id: string;
   user_id: string;
   address: string;
   city: string;
+  state: string;
   price: number;
   days_on_market: number;
   description: string;
@@ -26,14 +28,71 @@ type Lead = {
   keywords_matched: string[];
   listing_url: string;
   created_at: string;
+  listing_type?: 'fsbo' | 'agent';
 };
+
+// US States for the dropdown
+const US_STATES = [
+  { value: 'AL', label: 'Alabama' },
+  { value: 'AK', label: 'Alaska' },
+  { value: 'AZ', label: 'Arizona' },
+  { value: 'AR', label: 'Arkansas' },
+  { value: 'CA', label: 'California' },
+  { value: 'CO', label: 'Colorado' },
+  { value: 'CT', label: 'Connecticut' },
+  { value: 'DE', label: 'Delaware' },
+  { value: 'FL', label: 'Florida' },
+  { value: 'GA', label: 'Georgia' },
+  { value: 'HI', label: 'Hawaii' },
+  { value: 'ID', label: 'Idaho' },
+  { value: 'IL', label: 'Illinois' },
+  { value: 'IN', label: 'Indiana' },
+  { value: 'IA', label: 'Iowa' },
+  { value: 'KS', label: 'Kansas' },
+  { value: 'KY', label: 'Kentucky' },
+  { value: 'LA', label: 'Louisiana' },
+  { value: 'ME', label: 'Maine' },
+  { value: 'MD', label: 'Maryland' },
+  { value: 'MA', label: 'Massachusetts' },
+  { value: 'MI', label: 'Michigan' },
+  { value: 'MN', label: 'Minnesota' },
+  { value: 'MS', label: 'Mississippi' },
+  { value: 'MO', label: 'Missouri' },
+  { value: 'MT', label: 'Montana' },
+  { value: 'NE', label: 'Nebraska' },
+  { value: 'NV', label: 'Nevada' },
+  { value: 'NH', label: 'New Hampshire' },
+  { value: 'NJ', label: 'New Jersey' },
+  { value: 'NM', label: 'New Mexico' },
+  { value: 'NY', label: 'New York' },
+  { value: 'NC', label: 'North Carolina' },
+  { value: 'ND', label: 'North Dakota' },
+  { value: 'OH', label: 'Ohio' },
+  { value: 'OK', label: 'Oklahoma' },
+  { value: 'OR', label: 'Oregon' },
+  { value: 'PA', label: 'Pennsylvania' },
+  { value: 'RI', label: 'Rhode Island' },
+  { value: 'SC', label: 'South Carolina' },
+  { value: 'SD', label: 'South Dakota' },
+  { value: 'TN', label: 'Tennessee' },
+  { value: 'TX', label: 'Texas' },
+  { value: 'UT', label: 'Utah' },
+  { value: 'VT', label: 'Vermont' },
+  { value: 'VA', label: 'Virginia' },
+  { value: 'WA', label: 'Washington' },
+  { value: 'WV', label: 'West Virginia' },
+  { value: 'WI', label: 'Wisconsin' },
+  { value: 'WY', label: 'Wyoming' }
+];
 
 export default function LeadSearch() {
   // State for search form
   const [city, setCity] = useState('');
-  const [priceRange, setPriceRange] = useState([100000, 500000]);
+  const [state, setState] = useState('');
+  const [priceRange, setPriceRange] = useState([100000, 1000000]);
   const [daysOnMarket, setDaysOnMarket] = useState(30);
   const [daysOnMarketOption, setDaysOnMarketOption] = useState("less"); // "less" or "more"
+  const [listingType, setListingType] = useState<'both' | 'fsbo' | 'agent'>('both');
   const [sources, setSources] = useState({
     zillow: true,
     craigslist: true,
@@ -71,6 +130,11 @@ export default function LeadSearch() {
       return;
     }
 
+    if (!state) {
+      toast.error('Please select a state to search');
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -92,10 +156,12 @@ export default function LeadSearch() {
         },
         body: JSON.stringify({
           city,
+          state,
           priceMin: priceRange[0],
           priceMax: priceRange[1],
           days_on_market: daysOnMarket,
           days_on_market_option: daysOnMarketOption,
+          listing_type: listingType,
           sources: selectedSources,
           keywords: selectedKeywords.join(',')
         }),
@@ -141,6 +207,11 @@ export default function LeadSearch() {
     }
   };
 
+  // Format large numbers with commas
+  const formatNumber = (num: number) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  };
+
   return (
     <>
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -150,23 +221,46 @@ export default function LeadSearch() {
             <CardTitle>Search Criteria</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="city">City (required)</Label>
-              <Input 
-                id="city" 
-                placeholder="Enter city name" 
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="city">City (required)</Label>
+                <Input 
+                  id="city" 
+                  placeholder="Enter city name" 
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="state">State (required)</Label>
+                <Select 
+                  value={state} 
+                  onValueChange={setState}
+                >
+                  <SelectTrigger id="state">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80">
+                    {US_STATES.map((state) => (
+                      <SelectItem key={state.value} value={state.value}>
+                        {state.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Price Range: ${priceRange[0].toLocaleString()} - ${priceRange[1].toLocaleString()}</Label>
+              <div className="flex justify-between">
+                <Label>Price Range: ${formatNumber(priceRange[0])} - ${formatNumber(priceRange[1])}</Label>
+              </div>
               <Slider
-                defaultValue={[100000, 500000]}
+                defaultValue={[100000, 1000000]}
                 min={50000}
-                max={1000000}
-                step={10000}
+                max={5000000}
+                step={50000}
                 value={priceRange}
                 onValueChange={setPriceRange}
                 className="py-4"
@@ -198,6 +292,42 @@ export default function LeadSearch() {
                 onValueChange={(value) => setDaysOnMarket(value[0])}
                 className="py-4"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Listing Type</Label>
+              <div className="flex space-x-4">
+                <div className="flex items-center">
+                  <Checkbox 
+                    id="both" 
+                    checked={listingType === 'both'}
+                    onCheckedChange={() => setListingType('both')}
+                  />
+                  <label htmlFor="both" className="ml-2 text-sm font-medium">
+                    All Listings
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <Checkbox 
+                    id="fsbo" 
+                    checked={listingType === 'fsbo'}
+                    onCheckedChange={() => setListingType('fsbo')}
+                  />
+                  <label htmlFor="fsbo" className="ml-2 text-sm font-medium">
+                    FSBO Only
+                  </label>
+                </div>
+                <div className="flex items-center">
+                  <Checkbox 
+                    id="agent" 
+                    checked={listingType === 'agent'}
+                    onCheckedChange={() => setListingType('agent')}
+                  />
+                  <label htmlFor="agent" className="ml-2 text-sm font-medium">
+                    Agent Only
+                  </label>
+                </div>
+              </div>
             </div>
 
             <Tabs defaultValue="sources">
@@ -264,16 +394,21 @@ export default function LeadSearch() {
                 </div>
                 <h3 className="text-xl font-medium mb-2">Searching for Leads</h3>
                 <p className="text-gray-500 max-w-md mx-auto">
-                  Fetching leads from {Object.entries(sources).filter(([_, selected]) => selected).length} sources in {city}...
+                  Fetching leads from {Object.entries(sources).filter(([_, selected]) => selected).length} sources in {city}, {state}...
                 </p>
               </CardContent>
             </Card>
           ) : hasSearched ? (
             <>
               <div className="mb-4 flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Results for {city}</h2>
-                <div className="text-sm text-gray-500">
-                  Found {leads.length} leads
+                <h2 className="text-xl font-semibold">Results for {city}, {state}</h2>
+                <div className="text-sm text-gray-500 flex items-center gap-2">
+                  <span>Found {leads.length} leads</span>
+                  {listingType !== 'both' && (
+                    <Badge variant="outline" className="capitalize">
+                      {listingType === 'fsbo' ? 'FSBO Only' : 'Agent Listings Only'}
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -309,7 +444,7 @@ export default function LeadSearch() {
                 </div>
                 <h3 className="text-xl font-medium mb-2">Start Your Lead Search</h3>
                 <p className="text-gray-500 max-w-md mx-auto mb-6">
-                  Enter a city and customize your search criteria to find FSBO leads across multiple sources.
+                  Enter a city and state to find potential leads across multiple sources.
                 </p>
               </CardContent>
             </Card>

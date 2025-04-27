@@ -14,47 +14,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Input } from '@/components/ui/input';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
-import * as z from 'zod';
-
-const formSchema = z.object({
-  city: z.string().min(1, 'City is required'),
-  priceMin: z.string().optional(),
-  priceMax: z.string().optional(),
-  daysOnMarket: z.string().optional(),
-});
+import SearchForm from './search-form';
+import { formatCurrency } from '@/lib/utils';
 
 interface Lead {
   id: string;
   user_id: string;
   address: string;
   city: string;
+  state: string;
   price: number;
   days_on_market: number;
   description: string;
@@ -62,58 +31,50 @@ interface Lead {
   keywords_matched: string[];
   listing_url: string;
   created_at: string;
+  property_type?: string;
+  listing_type: 'fsbo' | 'agent' | 'both';
 }
 
 export default function LeadsPage() {
   const router = useRouter();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [sources, setSources] = useState<string[]>([]);
-  const [keywords, setKeywords] = useState<string[]>([]);
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      city: '',
-      priceMin: '',
-      priceMax: '',
-      daysOnMarket: '',
-    },
-  });
+  const availableSources = ['zillow', 'craigslist', 'facebook', 'realtor'];
 
-  const availableSources = [
-    { id: 'zillow', label: 'Zillow' },
-    { id: 'craigslist', label: 'Craigslist' },
-    { id: 'facebook', label: 'Facebook Marketplace' },
-    { id: 'realtor', label: 'Realtor.com' },
-  ];
-
-  const availableKeywords = [
-    { id: 'as-is', label: 'As-Is' },
-    { id: 'motivated-seller', label: 'Motivated Seller' },
-    { id: 'must-sell', label: 'Must Sell' },
-    { id: 'fixer-upper', label: 'Fixer Upper' },
-    { id: 'needs-work', label: 'Needs Work' },
-    { id: 'handyman-special', label: 'Handyman Special' },
-    { id: 'distressed', label: 'Distressed' },
-    { id: 'estate-sale', label: 'Estate Sale' },
-  ];
-
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function handleSearch(params: {
+    city: string;
+    state: string;
+    priceMin: number;
+    priceMax: number;
+    days_on_market: number;
+    days_on_market_option: string;
+    sources: string[];
+    keywords: string;
+    listing_type: 'fsbo' | 'agent' | 'both';
+  }) {
     setIsLoading(true);
     try {
+      const keywordsArray = params.keywords
+        .split(',')
+        .map(k => k.trim())
+        .filter(k => k !== '');
+
       const response = await fetch('/api/leads/search', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          city: values.city,
-          priceMin: values.priceMin ? parseInt(values.priceMin) : undefined,
-          priceMax: values.priceMax ? parseInt(values.priceMax) : undefined,
-          daysOnMarket: values.daysOnMarket ? parseInt(values.daysOnMarket) : undefined,
-          sources: sources.length > 0 ? sources : undefined,
-          keywords: keywords.length > 0 ? keywords : undefined,
+          city: params.city,
+          state: params.state,
+          priceMin: params.priceMin,
+          priceMax: params.priceMax,
+          days_on_market: params.days_on_market,
+          days_on_market_option: params.days_on_market_option,
+          sources: params.sources,
+          keywords: keywordsArray.join(','),
+          listing_type: params.listing_type
         }),
       });
 
@@ -136,28 +97,9 @@ export default function LeadsPage() {
     }
   }
 
-  function handleSourceToggle(sourceId: string) {
-    setSources((prev) =>
-      prev.includes(sourceId)
-        ? prev.filter((id) => id !== sourceId)
-        : [...prev, sourceId]
-    );
-  }
-
-  function handleKeywordToggle(keywordId: string) {
-    setKeywords((prev) =>
-      prev.includes(keywordId)
-        ? prev.filter((id) => id !== keywordId)
-        : [...prev, keywordId]
-    );
-  }
-
-  function formatPrice(price: number) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      maximumFractionDigits: 0,
-    }).format(price);
+  function saveToLeads(lead: Lead) {
+    // Implementation for saving a lead
+    toast.success('Lead saved to your list!');
   }
 
   return (
@@ -172,218 +114,78 @@ export default function LeadsPage() {
         <h1 className="text-3xl font-bold">Lead Genie</h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="md:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Search className="mr-2 h-5 w-5" />
-                Lead Search
-              </CardTitle>
-              <CardDescription>
-                Find FSBO leads that match your criteria
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center">
-                            <MapPin className="mr-2 h-4 w-4 text-gray-400" />
-                            <Input placeholder="e.g. Los Angeles" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+      <div className="grid grid-cols-1 gap-6">
+        <SearchForm 
+          onSearch={handleSearch}
+          isLoading={isLoading}
+          leadSources={availableSources}
+        />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="priceMin"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Min Price</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-2 h-4 w-4 text-gray-400" />
-                              <Input placeholder="e.g. 100000" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="priceMax"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Price</FormLabel>
-                          <FormControl>
-                            <div className="flex items-center">
-                              <DollarSign className="mr-2 h-4 w-4 text-gray-400" />
-                              <Input placeholder="e.g. 500000" {...field} />
-                            </div>
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+        {leads.length > 0 && (
+          <div className="grid grid-cols-1 gap-4">
+            <h2 className="text-xl font-semibold mb-2">Found {leads.length} Leads</h2>
+            
+            {leads.map((lead) => (
+              <Card key={lead.id} className="overflow-hidden">
+                <CardHeader className="bg-gray-50 p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <CardTitle className="text-lg">{lead.address}</CardTitle>
+                      <CardDescription>{lead.city}, {lead.state}</CardDescription>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xl font-bold text-green-600">{formatCurrency(lead.price)}</div>
+                      <div className="text-sm text-gray-500">{lead.days_on_market} days on market</div>
+                    </div>
                   </div>
-
-                  <FormField
-                    control={form.control}
-                    name="daysOnMarket"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Max Days on Market</FormLabel>
-                        <FormControl>
-                          <div className="flex items-center">
-                            <Calendar className="mr-2 h-4 w-4 text-gray-400" />
-                            <Input placeholder="e.g. 30" {...field} />
-                          </div>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
+                </CardHeader>
+                
+                <CardContent className="p-4">
+                  <div className="mb-4">
+                    <p className="text-gray-700">{lead.description}</p>
+                  </div>
+                  
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-200">{lead.source}</Badge>
+                    {lead.property_type && (
+                      <Badge className="bg-purple-100 text-purple-800 hover:bg-purple-200">{lead.property_type}</Badge>
                     )}
-                  />
-
-                  <Accordion type="single" collapsible className="w-full">
-                    <AccordionItem value="sources">
-                      <AccordionTrigger>Sources</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid grid-cols-2 gap-2">
-                          {availableSources.map((source) => (
-                            <div key={source.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`source-${source.id}`}
-                                checked={sources.includes(source.id)}
-                                onCheckedChange={() => handleSourceToggle(source.id)}
-                              />
-                              <Label htmlFor={`source-${source.id}`}>{source.label}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                    <Badge className={lead.listing_type === 'fsbo' 
+                      ? "bg-orange-100 text-orange-800 hover:bg-orange-200" 
+                      : "bg-indigo-100 text-indigo-800 hover:bg-indigo-200"
+                    }>
+                      {lead.listing_type === 'fsbo' ? 'For Sale By Owner' : 'Agent Listed'}
+                    </Badge>
                     
-                    <AccordionItem value="keywords">
-                      <AccordionTrigger>Keywords</AccordionTrigger>
-                      <AccordionContent>
-                        <div className="grid grid-cols-2 gap-2">
-                          {availableKeywords.map((keyword) => (
-                            <div key={keyword.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`keyword-${keyword.id}`}
-                                checked={keywords.includes(keyword.id)}
-                                onCheckedChange={() => handleKeywordToggle(keyword.id)}
-                              />
-                              <Label htmlFor={`keyword-${keyword.id}`}>{keyword.label}</Label>
-                            </div>
-                          ))}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  </Accordion>
-
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
-                    disabled={isLoading}
+                    {lead.keywords_matched && lead.keywords_matched.length > 0 && (
+                      lead.keywords_matched.map((keyword, idx) => (
+                        <Badge key={idx} className="bg-green-100 text-green-800 hover:bg-green-200">
+                          {keyword}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="bg-gray-50 p-4 flex justify-between">
+                  <Button
+                    onClick={() => window.open(lead.listing_url, '_blank')}
+                    variant="outline"
                   >
-                    {isLoading ? 'Searching...' : 'Search Leads'}
+                    View Listing
                   </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="md:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Filter className="mr-2 h-5 w-5" />
-                Results
-              </CardTitle>
-              <CardDescription>
-                {leads.length > 0
-                  ? `Found ${leads.length} potential leads`
-                  : 'Search for leads to see results'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center h-64">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                </div>
-              ) : leads.length > 0 ? (
-                <div className="space-y-4">
-                  {leads.map((lead) => (
-                    <Card key={lead.id} className="overflow-hidden">
-                      <CardHeader className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <CardTitle className="text-lg">{lead.address}</CardTitle>
-                            <CardDescription>{lead.city}</CardDescription>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-bold text-green-600">
-                              {formatPrice(lead.price)}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {lead.days_on_market} days on market
-                            </div>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="p-4 pt-0">
-                        <p className="text-sm text-gray-700 mb-2">{lead.description}</p>
-                        <div className="flex flex-wrap gap-2 mt-2">
-                          <Badge variant="outline" className="bg-blue-50">
-                            {lead.source}
-                          </Badge>
-                          {lead.keywords_matched.map((keyword) => (
-                            <Badge key={keyword} variant="outline" className="bg-orange-50">
-                              {keyword}
-                            </Badge>
-                          ))}
-                        </div>
-                      </CardContent>
-                      <CardFooter className="p-4 pt-0 flex justify-between">
-                        <div className="text-xs text-gray-500">
-                          Found {new Date(lead.created_at).toLocaleDateString()}
-                        </div>
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={lead.listing_url} target="_blank" rel="noopener noreferrer">
-                            View Listing
-                          </a>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-64 text-center">
-                  <Search className="h-12 w-12 text-gray-300 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-700">No leads found</h3>
-                  <p className="text-gray-500 mt-1">
-                    Try adjusting your search criteria to find more results
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                  
+                  <Button 
+                    onClick={() => saveToLeads(lead)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    Save Lead
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

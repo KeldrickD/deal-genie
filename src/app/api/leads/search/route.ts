@@ -1,142 +1,150 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
 import { scrapeZillowFSBO } from '@/lib/scrapers/zillow';
 import { scrapeCraigslist } from '@/lib/scrapers/craigslist';
 import { scrapeFacebook } from '@/lib/scrapers/facebook';
 import { scrapeRealtor } from '@/lib/scrapers/realtor';
-import { retry } from '@/lib/utils/retry';
-import { getSession } from '@/lib/auth';
+import { Lead } from '@/types/lead';
+import { filterLeadsByPrice } from '@/lib/leads';
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export async function POST(request: NextRequest) {
+  const { userId } = auth();
+  
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-export async function POST(req: NextRequest) {
   try {
-    // Get authenticated user
-    const session = await getSession();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    
-    const userId = session.user.id;
-    
-    // Track usage
-    await fetch('/api/usage/track', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ userId, feature: 'lead_search' })
-    }).catch(err => console.error('Usage tracking error:', err));
-    
-    // Parse search parameters
-    const body = await req.json();
+    const body = await request.json();
     const { 
       city, 
-      keywords = '', 
-      sources = ['zillow', 'craigslist'], 
-      days_on_market = 0, 
-      days_on_market_option = 'less',
-      property_type = '',
-      priceMin,
-      priceMax 
+      state,
+      priceMin, 
+      priceMax, 
+      days_on_market, 
+      days_on_market_option, 
+      listing_type = 'both',
+      sources = [], 
+      keywords = '' 
     } = body;
-    
+
     if (!city) {
       return NextResponse.json({ error: 'City is required' }, { status: 400 });
     }
     
-    // Process keywords
-    const kwList = keywords.split(',').map((k: string) => k.trim()).filter(Boolean);
-    
-    // Fetch leads from selected sources
-    let allLeads = [];
-    
-    // Create an array of promises for parallel scraping
-    const scrapingPromises = [];
-    
+    if (!state) {
+      return NextResponse.json({ error: 'State is required' }, { status: 400 });
+    }
+
+    const keywordArray = keywords.split(',').filter((k: string) => k.trim() !== '');
+    let allLeads: any[] = [];
+
+    // Run searches in parallel using Promise.all for better performance
+    const searchPromises = [];
+
     if (sources.includes('zillow')) {
-      scrapingPromises.push(
-        retry(() => scrapeZillowFSBO(city, kwList), 3, 1000)
-          .catch(error => {
-            console.error('Zillow scraping error:', error);
-            return [];
-          })
-      );
+      const zillowPromise = async () => {
+        try {
+          const results = await scrapeZillowFSBO(city, state, keywordArray, listing_type as 'fsbo' | 'agent' | 'both');
+          return results.map((result: any) => ({
+            ...result,
+            user_id: userId
+          }));
+        } catch (error) {
+          console.error('Error scraping Zillow:', error);
+          return [];
+        }
+      };
+      searchPromises.push(zillowPromise());
     }
-    
+
     if (sources.includes('craigslist')) {
-      scrapingPromises.push(
-        retry(() => scrapeCraigslist(city, kwList), 3, 1000)
-          .catch(error => {
-            console.error('Craigslist scraping error:', error);
-            return [];
-          })
-      );
+      const craigslistPromise = async () => {
+        try {
+          const results = await scrapeCraigslist(city, state, keywordArray);
+          return results.map(result => ({
+            ...result,
+            user_id: userId,
+            listing_type: 'fsbo' // Craigslist typically only has FSBO listings
+          }));
+        } catch (error) {
+          console.error('Error scraping Craigslist:', error);
+          return [];
+        }
+      };
+      searchPromises.push(craigslistPromise());
     }
-    
+
     if (sources.includes('facebook')) {
-      scrapingPromises.push(
-        retry(() => scrapeFacebook(city, kwList), 3, 1000)
-          .catch(error => {
-            console.error('Facebook scraping error:', error);
-            return [];
-          })
-      );
+      const facebookPromise = async () => {
+        try {
+          const results = await scrapeFacebook(city, state, keywordArray);
+          return results.map(result => ({
+            ...result,
+            user_id: userId,
+            listing_type: 'fsbo' // Facebook Marketplace typically has FSBO listings
+          }));
+        } catch (error) {
+          console.error('Error scraping Facebook:', error);
+          return [];
+        }
+      };
+      searchPromises.push(facebookPromise());
     }
-    
+
     if (sources.includes('realtor')) {
-      scrapingPromises.push(
-        retry(() => scrapeRealtor(city, kwList), 3, 1000)
-          .catch(error => {
-            console.error('Realtor scraping error:', error);
-            return [];
-          })
-      );
+      const realtorPromise = async () => {
+        try {
+          const results = await scrapeRealtor(city, state, keywordArray);
+          return results.map(result => ({
+            ...result,
+            user_id: userId,
+            listing_type: 'agent' // Realtor.com typically has agent listings
+          }));
+        } catch (error) {
+          console.error('Error scraping Realtor.com:', error);
+          return [];
+        }
+      };
+      searchPromises.push(realtorPromise());
     }
-    
-    // Wait for all scraping to complete
-    const results = await Promise.all(scrapingPromises);
+
+    // Execute all search promises in parallel
+    const searchResults = await Promise.all(searchPromises);
     
     // Combine all results
-    allLeads = results.flat();
-    
-    // Apply filters
-    let filtered = allLeads;
-    
-    // Filter by days on market
-    if (days_on_market > 0) {
-      if (days_on_market_option === 'less') {
-        filtered = filtered.filter(lead => lead.days_on_market <= days_on_market);
-      } else if (days_on_market_option === 'more') {
-        filtered = filtered.filter(lead => lead.days_on_market >= days_on_market);
-      }
-    }
-    
+    allLeads = searchResults.flat();
+
     // Filter by price range
-    if (priceMin !== undefined) {
-      filtered = filtered.filter(lead => lead.price >= priceMin);
+    if (priceMin || priceMax) {
+      allLeads = allLeads.filter(lead => {
+        const price = lead.price;
+        return (!priceMin || price >= priceMin) && (!priceMax || price <= priceMax);
+      });
     }
-    
-    if (priceMax !== undefined) {
-      filtered = filtered.filter(lead => lead.price <= priceMax);
+
+    // Filter by days on market
+    if (days_on_market) {
+      allLeads = allLeads.filter(lead => {
+        const dom = lead.days_on_market;
+        if (days_on_market_option === "less") {
+          return dom <= days_on_market;
+        } else {
+          return dom >= days_on_market;
+        }
+      });
     }
-    
-    // Filter by property type if specified
-    if (property_type) {
-      filtered = filtered.filter(lead => 
-        lead.property_type?.toLowerCase().includes(property_type.toLowerCase())
+
+    // If listing_type is not 'both', filter by listing type
+    if (listing_type !== 'both') {
+      allLeads = allLeads.filter(lead => 
+        lead.listing_type === listing_type
       );
     }
-    
-    return NextResponse.json({ 
-      leads: filtered,
-      total: filtered.length,
-      sources: sources
-    });
-  } catch (error: any) {
-    console.error('Search API error:', error);
-    return NextResponse.json({ error: error.message || 'Failed to search leads' }, { status: 500 });
+
+    return NextResponse.json({ leads: allLeads });
+  } catch (error) {
+    console.error('Error searching for leads:', error);
+    return NextResponse.json({ error: 'Failed to search for leads' }, { status: 500 });
   }
 }

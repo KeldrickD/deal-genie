@@ -1,11 +1,13 @@
 import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { v4 as uuidv4 } from 'uuid';
+import { getStateAbbreviation } from '@/lib/utils';
 
 export type Lead = {
   id: string;
   address: string;
   city: string;
+  state: string;
   price: number;
   days_on_market: number;
   description: string;
@@ -14,90 +16,169 @@ export type Lead = {
   listing_url: string;
   created_at: string;
   property_type?: string;
+  listing_type: 'fsbo' | 'agent' | 'both';
 };
 
-export async function scrapeZillowFSBO(city: string, keywords: string[] = []): Promise<Lead[]> {
+// Add type for Zillow data structure
+interface ZillowData {
+  searchPageState: {
+    cat1: {
+      searchResults: {
+        listResults: Array<{
+          addressCity?: string;
+          addressState?: string;
+          addressZipcode?: string;
+          address?: string;
+          price?: string;
+          daysOnZillow?: string;
+          description?: string;
+          isPremierBuilder?: boolean;
+          isListedByOwner?: boolean;
+          statusType?: string;
+          detailUrl?: string;
+          [key: string]: any;
+        }>;
+      };
+    };
+  };
+  [key: string]: any;
+}
+
+export async function scrapeZillowFSBO(
+  city: string, 
+  state: string, 
+  keywords: string[] = [],
+  listingType: 'fsbo' | 'agent' | 'both' = 'both'
+): Promise<Lead[]> {
   try {
-    // Use real scraping logic - don't immediately return mock data
-    const urlCity = encodeURIComponent(city);
-    const url = `https://www.zillow.com/homes/fsbo/${urlCity}/`;
-    const res = await fetch(url, {
+    const stateAbbr = getStateAbbreviation(state);
+    if (!stateAbbr) {
+      console.error(`Invalid state name: ${state}`);
+      return [];
+    }
+
+    const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
+    const formattedState = stateAbbr.toLowerCase();
+    
+    let url = `https://www.zillow.com/${formattedCity}-${formattedState}/`;
+    
+    // Apply listing type filter
+    if (listingType === 'fsbo') {
+      url += 'fsbo/';
+    } else if (listingType === 'agent') {
+      url += 'houses/';
+    }
+    
+    console.log(`Scraping Zillow for ${city}, ${state} (${listingType}): ${url}`);
+
+    const response = await fetch(url, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/115.0.0.0 Safari/537.36',
-      },
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     });
-    
-    if (!res.ok) {
-      console.error(`Failed to fetch from Zillow: ${res.status} ${res.statusText}`);
-      return getMockZillowData(city, keywords);
+
+    if (!response.ok) {
+      console.error(`Failed to fetch from Zillow: ${response.status} ${response.statusText}`);
+      return [];
     }
-    
-    const html = await res.text();
+
+    const html = await response.text();
     const $ = cheerio.load(html);
-
-    // Zillow embeds JSON in __NEXT_DATA__
-    const nextData = $('#__NEXT_DATA__').html();
-    if (!nextData) {
-      console.log('No __NEXT_DATA__ found in Zillow page');
-      return getMockZillowData(city, keywords);
-    }
-
-    const data = JSON.parse(nextData);
-    const results = data.props?.pageProps?.searchResults?.listResults || [];
     
-    if (!results || !results.length) {
-      console.log('No results found in Zillow data');
-      return getMockZillowData(city, keywords);
+    // Find the Zillow data in the script tag
+    let jsonData: ZillowData | null = null;
+    $('script').each((i, elem) => {
+      const scriptContent = $(elem).html() || '';
+      if (scriptContent.includes('__PRELOADED_STATE__')) {
+        const match = scriptContent.match(/window\['__PRELOADED_STATE__'\]\s*=\s*({.*});/);
+        if (match && match[1]) {
+          try {
+            jsonData = JSON.parse(match[1]) as ZillowData;
+          } catch (e) {
+            console.error('Failed to parse Zillow data:', e);
+          }
+        }
+      }
+    });
+
+    if (!jsonData || !jsonData.searchPageState || !jsonData.searchPageState.cat1 || !jsonData.searchPageState.cat1.searchResults) {
+      console.error('Failed to extract property data from Zillow');
+      return [];
     }
 
-    return results.map((r: any) => {
-      // Extract address components
-      const addressParts = r.address.split(', ');
-      const streetAddress = addressParts[0] || '';
-      const cityPart = addressParts[1] || '';
+    const results = jsonData.searchPageState.cat1.searchResults.listResults || [];
+    console.log(`Found ${results.length} Zillow results`);
+
+    const leads: Lead[] = [];
+
+    for (const result of results) {
+      // Filter by city and state to ensure we only get properties in the requested location
+      const propertyCity = result.addressCity || '';
+      const propertyState = result.addressState || '';
       
-      // Create property description from available data
-      const bedsBaths = r.beds && r.baths ? `${r.beds} beds, ${r.baths} baths, ` : '';
-      const sqft = r.area ? `${r.area} sqft. ` : '';
-      const description = `${bedsBaths}${sqft}For sale by owner property listed on Zillow.`;
+      // Skip properties that don't match the requested city/state
+      if (
+        propertyCity.toLowerCase() !== city.toLowerCase() ||
+        propertyState.toLowerCase() !== stateAbbr.toLowerCase()
+      ) {
+        continue;
+      }
       
-      // Find matching keywords in description or address
-      const matchedKeywords = keywords.filter(keyword => 
+      const price = parseFloat(result.price?.replace(/[^0-9.]/g, '') || '0');
+      const address = result.address || '';
+      const propertyZip = result.addressZipcode || '';
+      const fullAddress = `${address}, ${propertyCity}, ${propertyState} ${propertyZip}`;
+      
+      const daysOnMarket = parseInt(result.daysOnZillow || '0', 10);
+      const description = result.description || '';
+      
+      // Extract property type
+      let propertyType = 'unknown';
+      if (result.isPremierBuilder) {
+        propertyType = 'new construction';
+      } else if (result.statusType === 'FOR_SALE' && result.isListedByOwner) {
+        propertyType = 'fsbo';
+      } else if (result.statusType === 'FOR_SALE') {
+        propertyType = 'for sale';
+      } else if (result.statusType === 'AUCTION') {
+        propertyType = 'auction'; 
+      }
+      
+      // Determine if the keywords match
+      const keywordsMatched = keywords.filter(keyword => 
         description.toLowerCase().includes(keyword.toLowerCase()) || 
-        r.address.toLowerCase().includes(keyword.toLowerCase())
+        address.toLowerCase().includes(keyword.toLowerCase())
       );
       
-      // Convert price from string to number if needed
-      let price = r.price;
-      if (typeof price === 'string') {
-        price = parseInt(price.replace(/[$,]/g, ''), 10);
-      }
-
-      return {
-        id: r.zpid?.toString() || `zillow-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
-        address: streetAddress,
-        city: cityPart,
-        price: price || 0,
-        days_on_market: r.daysOnZillow || 0,
+      const lead: Lead = {
+        id: uuidv4(),
+        address: fullAddress,
+        city: propertyCity,
+        state: propertyState,
+        price,
+        days_on_market: daysOnMarket,
         description,
         source: 'zillow',
-        keywords_matched: matchedKeywords,
-        listing_url: `https://www.zillow.com${r.detailUrl}`,
+        keywords_matched: keywordsMatched,
+        listing_url: `https://www.zillow.com${result.detailUrl}`,
         created_at: new Date().toISOString(),
-        property_type: r.propertyType || 'single_family'
+        property_type: propertyType,
+        listing_type: result.isListedByOwner ? 'fsbo' : 'agent'
       };
-    });
+      
+      leads.push(lead);
+    }
+
+    return leads;
   } catch (error) {
-    console.error('Error scraping Zillow FSBO:', error);
-    // Use mock data only as a fallback when real scraping fails
-    return getMockZillowData(city, keywords);
+    console.error('Error scraping Zillow:', error);
+    return [];
   }
 }
 
 // Keep mock data function as fallback only
-function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
-  console.warn('Using mock Zillow data as fallback');
+function getMockZillowData(city: string, state: string, keywords: string[] = [], listingType: 'fsbo' | 'agent' | 'both' = 'fsbo'): Lead[] {
+  console.warn(`Using mock Zillow data as fallback for ${city}, ${state}`);
   
   const streets = ['Maple', 'Oak', 'Pine', 'Elm', 'Cedar', 'Willow', 'Birch', 'Spruce'];
   const streetTypes = ['St', 'Ave', 'Blvd', 'Dr', 'Ln', 'Ct', 'Way', 'Pl'];
@@ -114,7 +195,7 @@ function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
     const streetType = streetTypes[Math.floor(Math.random() * streetTypes.length)];
     const address = `${streetNum} ${street} ${streetType}`;
     
-    const price = Math.floor(Math.random() * 400000) + 100000;
+    const price = Math.floor(Math.random() * 1000000) + 200000;
     const daysOnMarket = Math.floor(Math.random() * 120) + 1;
     const propertyType = propertyTypes[Math.floor(Math.random() * propertyTypes.length)];
     
@@ -122,7 +203,7 @@ function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
     const baths = Math.floor(Math.random() * 3) + 1;
     const sqft = (Math.floor(Math.random() * 2000) + 800);
     
-    const description = `${beds} beds, ${baths} baths, ${sqft} sqft. For sale by owner property listed on Zillow. Great opportunity in ${city}!`;
+    const description = `${beds} beds, ${baths} baths, ${sqft} sqft. ${listingType === 'fsbo' ? 'For sale by owner' : 'Agent listed'} property in ${city}, ${state}. Great opportunity!`;
     
     // Match keywords if any
     const matchedKeywords = keywords.filter(keyword => 
@@ -140,6 +221,7 @@ function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
       id: `zillow-mock-${uuidv4()}`,
       address,
       city,
+      state,
       price,
       days_on_market: daysOnMarket,
       description,
@@ -147,7 +229,8 @@ function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
       keywords_matched: matchedKeywords,
       listing_url: `https://www.zillow.com/homes/${encodeURIComponent(address)}_rb/`,
       created_at: new Date().toISOString(),
-      property_type: propertyType
+      property_type: propertyType,
+      listing_type: listingType
     });
   }
   
