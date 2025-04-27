@@ -17,7 +17,8 @@ import {
   Target,
   Gauge,
   Cloud,
-  Network
+  Network,
+  Search
 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { SITE } from '@/lib/config';
@@ -68,6 +69,13 @@ export default function FeaturesPage() {
           icon={Target}
           title="Genie Profile"
           description="Genie learns your strategy—flip, BRRRR, or rental—plus your risk tolerance and ROI targets. Every analysis gets smarter and more tailored over time."
+        />
+
+        {/* Lead Genie */}
+        <FeatureCard
+          icon={Search}
+          title="Lead Genie"
+          description="Find FSBO properties and off-market deals across multiple sources. Set up daily alerts and save your favorite search criteria for consistent deal flow."
         />
 
         {/* Smart Scout */}

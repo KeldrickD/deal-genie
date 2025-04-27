@@ -94,6 +94,8 @@ export default function Navigation() {
                 <Link href="/dashboard" className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}>Dashboard</Link>
                 <Link href="/bulk-analysis" className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}>Genie Analyzer</Link>
                 <Link href="/offers" className={`text-gray-600 hover:text-indigo-600 ${isActive('/offers') ? 'text-indigo-600 font-medium' : ''}`}>Genie Offer Engine</Link>
+                <Link href="/lead-genie/search" className={`text-gray-600 hover:text-indigo-600 ${isActive('/lead-genie') ? 'text-indigo-600 font-medium' : ''}`}>Lead Genie</Link>
+                <Link href="/crm" className={`text-gray-600 hover:text-indigo-600 ${isActive('/crm') ? 'text-indigo-600 font-medium' : ''}`}>CRM</Link>
                 <Link href="/smart-scout" className={`text-gray-600 hover:text-indigo-600 ${isActive('/smart-scout') ? 'text-indigo-600 font-medium' : ''}`}>Smart Scout</Link>
                 <Link href="/exit-strategy" className={`text-gray-600 hover:text-indigo-600 ${isActive('/exit-strategy') ? 'text-indigo-600 font-medium' : ''}`}>Exit Strategy</Link>
                 {enableGenieNet && 
@@ -237,6 +239,29 @@ export default function Navigation() {
                     }}
                   >
                     Genie Offer Engine
+                  </a>
+                  <a
+                    href="/lead-genie/search"
+                    className={`text-gray-600 hover:text-indigo-600 ${isActive('/lead-genie') ? 'text-indigo-600 font-medium' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      window.location.href = '/lead-genie/search';
+                    }}
+                  >
+                    Lead Genie
+                  </a>
+                  <a
+                    href="/crm"
+                    className={`text-gray-600 hover:text-indigo-600 ${isActive('/crm') ? 'text-indigo-600 font-medium' : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setMobileMenuOpen(false);
+                      console.log('Mobile: Navigating to crm');
+                      window.location.href = '/crm';
+                    }}
+                  >
+                    CRM
                   </a>
                   <a
                     href="/smart-scout"
