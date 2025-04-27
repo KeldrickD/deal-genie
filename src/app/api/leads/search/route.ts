@@ -13,19 +13,51 @@ function apiLog(message: string, data?: any) {
   }
 }
 
-export async function POST(request: NextRequest) {
-  const authObj = await auth();
-  const userId = authObj?.userId;
-  
-  apiLog(`Request received, authenticated user: ${userId ? 'yes' : 'no'}`);
-  
-  if (!userId) {
-    apiLog('Unauthorized request, no user ID found');
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
+// Wrapper for safer JSON response handling
+function safeJsonResponse(data: any, status = 200) {
   try {
-    const body = await request.json();
+    return NextResponse.json(data, { status });
+  } catch (error) {
+    console.error("Error creating JSON response:", error);
+    // Return an emergency fallback response
+    return new Response(JSON.stringify({ error: "Internal server error", leads: [] }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  // Global try-catch to ensure we always return a valid response
+  try {
+    // 1. Check authentication
+    let authObj;
+    try {
+      authObj = await auth();
+    } catch (authError) {
+      apiLog(`Auth error: ${authError instanceof Error ? authError.message : String(authError)}`);
+      return safeJsonResponse({ error: 'Authentication failed', leads: [] }, 401);
+    }
+    
+    const userId = authObj?.userId;
+    apiLog(`Request received, authenticated user: ${userId ? 'yes' : 'no'}`);
+    
+    if (!userId) {
+      apiLog('Unauthorized request, no user ID found');
+      return safeJsonResponse({ error: 'Unauthorized', leads: [] }, 401);
+    }
+
+    // 2. Parse request body
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      apiLog(`Error parsing request body: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      return safeJsonResponse({ error: 'Invalid request format', leads: [] }, 400);
+    }
+    
     const { 
       city, 
       state,
@@ -45,21 +77,22 @@ export async function POST(request: NextRequest) {
 
     if (!city) {
       apiLog('Missing required parameter: city');
-      return NextResponse.json({ error: 'City is required' }, { status: 400 });
+      return safeJsonResponse({ error: 'City is required', leads: [] }, 400);
     }
     
     if (!state) {
       apiLog('Missing required parameter: state');
-      return NextResponse.json({ error: 'State is required' }, { status: 400 });
+      return safeJsonResponse({ error: 'State is required', leads: [] }, 400);
     }
 
+    // 3. Process keywords
     const keywordArray = keywords.split(',').filter((k: string) => k.trim() !== '');
     let allLeads: any[] = [];
 
     apiLog(`Processing ${keywordArray.length} keywords: ${keywordArray.join(', ') || 'none'}`);
     apiLog(`Searching sources: ${sources.join(', ')}`);
 
-    // Run searches in parallel using Promise.all for better performance
+    // 4. Run searches with improved error handling
     const searchPromises = [];
 
     if (sources.includes('zillow')) {
@@ -141,11 +174,22 @@ export async function POST(request: NextRequest) {
       searchPromises.push(realtorPromise());
     }
 
-    // Execute all search promises in parallel
+    // 5. Execute all search promises with error handling
     apiLog(`Executing ${searchPromises.length} search promises in parallel`);
-    const searchResults = await Promise.all(searchPromises);
+    let searchResults;
+    try {
+      searchResults = await Promise.all(searchPromises);
+    } catch (promiseError) {
+      apiLog(`Error executing search promises: ${promiseError instanceof Error ? promiseError.message : String(promiseError)}`);
+      // Return empty results instead of failing
+      return safeJsonResponse({ 
+        leads: [], 
+        error: "Some search sources failed",
+        partialFailure: true
+      });
+    }
     
-    // Combine all results
+    // 6. Combine and filter results
     allLeads = searchResults.flat();
     apiLog(`Total results before filtering: ${allLeads.length}`);
 
@@ -185,10 +229,17 @@ export async function POST(request: NextRequest) {
       apiLog(`After listing type filtering: ${allLeads.length} leads (removed ${beforeCount - allLeads.length})`);
     }
 
+    // 7. Return the filtered results
     apiLog(`Returning ${allLeads.length} final leads after all filtering`);
-    return NextResponse.json({ leads: allLeads });
-  } catch (error) {
-    apiLog(`ERROR in search API: ${error instanceof Error ? error.stack || error.message : String(error)}`);
-    return NextResponse.json({ error: 'Failed to search for leads' }, { status: 500 });
+    return safeJsonResponse({ leads: allLeads });
+    
+  } catch (globalError) {
+    // Catch any uncaught errors and return a safe response
+    console.error(`GLOBAL ERROR in search API: ${globalError instanceof Error ? globalError.stack || globalError.message : String(globalError)}`);
+    return safeJsonResponse({ 
+      error: 'An unexpected error occurred', 
+      leads: [],
+      errorType: globalError instanceof Error ? globalError.name : 'Unknown'
+    }, 500);
   }
 }
