@@ -18,12 +18,7 @@ export type Lead = {
 
 export async function scrapeZillowFSBO(city: string, keywords: string[] = []): Promise<Lead[]> {
   try {
-    // DEMO/MOCK DATA - Replace with actual scraping logic for production
-    // This will bypass actual scraping and return mock data for testing
-    return getMockZillowData(city, keywords);
-    
-    // Real scraping logic would be uncommented in production
-    /*
+    // Use real scraping logic - don't immediately return mock data
     const urlCity = encodeURIComponent(city);
     const url = `https://www.zillow.com/homes/fsbo/${urlCity}/`;
     const res = await fetch(url, {
@@ -93,14 +88,17 @@ export async function scrapeZillowFSBO(city: string, keywords: string[] = []): P
         property_type: r.propertyType || 'single_family'
       };
     });
-    */
   } catch (error) {
     console.error('Error scraping Zillow FSBO:', error);
+    // Use mock data only as a fallback when real scraping fails
     return getMockZillowData(city, keywords);
   }
 }
 
+// Keep mock data function as fallback only
 function getMockZillowData(city: string, keywords: string[] = []): Lead[] {
+  console.warn('Using mock Zillow data as fallback');
+  
   const streets = ['Maple', 'Oak', 'Pine', 'Elm', 'Cedar', 'Willow', 'Birch', 'Spruce'];
   const streetTypes = ['St', 'Ave', 'Blvd', 'Dr', 'Ln', 'Ct', 'Way', 'Pl'];
   const propertyTypes = ['Single Family', 'Condo', 'Townhouse', 'Multi-family'];
