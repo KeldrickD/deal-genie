@@ -29,24 +29,57 @@ function safeJsonResponse(data: any, status = 200) {
   }
 }
 
+// TEMPORARY: For debugging, allow bypassing auth in development
+const BYPASS_AUTH = process.env.NODE_ENV === 'development';
+
 export async function POST(request: NextRequest) {
   // Global try-catch to ensure we always return a valid response
   try {
-    // 1. Check authentication
+    // 1. Check authentication with detailed logging
     let authObj;
+    let userId;
+    
     try {
       authObj = await auth();
+      userId = authObj?.userId;
+      
+      apiLog(`Auth check - userId: ${userId || 'none'}, sessionId: ${authObj?.sessionId ? 'present' : 'none'}`);
+      apiLog(`Auth check - headers: ${JSON.stringify(Object.fromEntries(
+        Array.from(request.headers.entries())
+          .filter(([key]) => !key.toLowerCase().includes('authorization') && !key.toLowerCase().includes('cookie'))
+      ))}`);
+      
+      if (!userId && !BYPASS_AUTH) {
+        apiLog('Unauthorized request, no user ID found');
+        return safeJsonResponse({ 
+          error: 'Unauthorized', 
+          leads: [],
+          authDebug: {
+            hasSession: !!authObj?.sessionId,
+            env: process.env.NODE_ENV
+          }
+        }, 401);
+      }
+      
+      // If bypassing auth in development, set a fake user ID
+      if (!userId && BYPASS_AUTH) {
+        apiLog('DEVELOPMENT MODE: Bypassing authentication');
+        userId = 'dev-user-bypass';
+      }
     } catch (authError) {
       apiLog(`Auth error: ${authError instanceof Error ? authError.message : String(authError)}`);
-      return safeJsonResponse({ error: 'Authentication failed', leads: [] }, 401);
-    }
-    
-    const userId = authObj?.userId;
-    apiLog(`Request received, authenticated user: ${userId ? 'yes' : 'no'}`);
-    
-    if (!userId) {
-      apiLog('Unauthorized request, no user ID found');
-      return safeJsonResponse({ error: 'Unauthorized', leads: [] }, 401);
+      
+      // In development, bypass auth errors
+      if (BYPASS_AUTH) {
+        apiLog('DEVELOPMENT MODE: Bypassing authentication after error');
+        userId = 'dev-user-error-bypass';
+      } else {
+        return safeJsonResponse({ 
+          error: 'Authentication failed', 
+          leads: [],
+          message: authError instanceof Error ? authError.message : String(authError)
+        }, 401);
+      }
     }
 
     // 2. Parse request body

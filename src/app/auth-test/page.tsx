@@ -1,106 +1,101 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAuthContext } from '@/components/AuthProvider';
-import { getSupabaseBrowserClient } from '@/lib/supabase';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@clerk/nextjs';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-export default function AuthTestPage() {
-  const { user, isAuthenticated, loading: authLoading, signOut } = useAuthContext();
-  const [sessionData, setSessionData] = useState<any>(null);
-  const [cookieData, setCookieData] = useState<string>('');
-  const [localStorageData, setLocalStorageData] = useState<any>({});
+export default function AuthTest() {
+  const { isLoaded, userId, sessionId, signOut } = useAuth();
+  const [apiAuthStatus, setApiAuthStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+
+  const checkServerAuth = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/whoami');
+      const data = await response.json();
+      setApiAuthStatus(data);
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      setApiAuthStatus({ error: String(error) });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    // Get direct session data from Supabase
-    const checkDirectSession = async () => {
-      const supabase = getSupabaseBrowserClient();
-      const { data } = await supabase.auth.getSession();
-      setSessionData(data.session);
-    };
-
-    // Check cookies
-    const checkCookies = () => {
-      setCookieData(document.cookie);
-    };
-
-    // Check localStorage
-    const checkLocalStorage = () => {
-      try {
-        const items: Record<string, any> = {};
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key) {
-            try {
-              const value = localStorage.getItem(key);
-              items[key] = value;
-            } catch (e) {
-              items[key] = 'ERROR_READING';
-            }
-          }
-        }
-        setLocalStorageData(items);
-      } catch (error) {
-        console.error('Error reading localStorage:', error);
-      }
-    };
-
-    checkDirectSession();
-    checkCookies();
-    checkLocalStorage();
-  }, []);
+    if (isLoaded) {
+      checkServerAuth();
+    }
+  }, [isLoaded]);
 
   return (
-    <div className="container mx-auto px-4 py-8 mt-8">
-      <h1 className="text-2xl font-bold mb-6">Auth Test Page</h1>
+    <div className="container py-10">
+      <h1 className="text-3xl font-bold mb-6">Authentication Test Page</h1>
       
-      <div className="grid grid-cols-1 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Auth Context State</h2>
-          <div className="space-y-2">
-            <p><strong>Loading:</strong> {authLoading ? 'Yes' : 'No'}</p>
-            <p><strong>Is Authenticated:</strong> {isAuthenticated ? 'Yes' : 'No'}</p>
-            <p><strong>User ID:</strong> {user?.id || 'None'}</p>
-            <p><strong>User Email:</strong> {user?.email || 'None'}</p>
-            <pre className="bg-gray-100 p-3 rounded mt-2 text-xs overflow-auto max-h-40">
-              {JSON.stringify(user, null, 2)}
-            </pre>
-          </div>
-        </div>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Client-Side Auth Status</CardTitle>
+            <CardDescription>Authentication state on the browser</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!isLoaded ? (
+              <p>Loading auth state...</p>
+            ) : (
+              <div className="space-y-2">
+                <p><strong>Authenticated:</strong> {userId ? 'Yes' : 'No'}</p>
+                <p><strong>User ID:</strong> {userId || 'Not signed in'}</p>
+                <p><strong>Session ID:</strong> {sessionId ? '[present]' : 'No session'}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Direct Supabase Session</h2>
-          <p><strong>Has Session:</strong> {sessionData ? 'Yes' : 'No'}</p>
-          <pre className="bg-gray-100 p-3 rounded mt-2 text-xs overflow-auto max-h-40">
-            {JSON.stringify(sessionData, null, 2)}
-          </pre>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Server-Side Auth Status</CardTitle>
+            <CardDescription>Authentication state from API</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!apiAuthStatus ? (
+              <p>Loading server auth status...</p>
+            ) : (
+              <div className="space-y-2">
+                <p><strong>Authenticated:</strong> {apiAuthStatus.authenticated ? 'Yes' : 'No'}</p>
+                <p><strong>User ID:</strong> {apiAuthStatus.userId || 'None'}</p>
+                {apiAuthStatus.error && (
+                  <p className="text-red-500"><strong>Error:</strong> {apiAuthStatus.error}</p>
+                )}
+                {apiAuthStatus.message && (
+                  <p><strong>Message:</strong> {apiAuthStatus.message}</p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Cookie Data</h2>
-          <p className="break-all text-xs">{cookieData || 'No cookies found'}</p>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">LocalStorage Data</h2>
-          <pre className="bg-gray-100 p-3 rounded mt-2 text-xs overflow-auto max-h-40">
-            {JSON.stringify(localStorageData, null, 2)}
-          </pre>
-        </div>
-
-        <div className="flex gap-4">
-          <button 
-            onClick={() => signOut()} 
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
-          >
+      <div className="mt-6 space-x-4">
+        <Button onClick={checkServerAuth} disabled={loading}>
+          {loading ? 'Checking...' : 'Refresh Server Auth'}
+        </Button>
+        
+        {userId && (
+          <Button variant="outline" onClick={() => signOut()}>
             Sign Out
-          </button>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
-          >
-            Refresh Page
-          </button>
-        </div>
+          </Button>
+        )}
+      </div>
+      
+      <div className="mt-8">
+        <h2 className="text-xl font-semibold mb-4">Debug Information</h2>
+        {apiAuthStatus?.debug && (
+          <pre className="bg-gray-100 p-4 rounded overflow-auto max-h-64">
+            {JSON.stringify(apiAuthStatus.debug, null, 2)}
+          </pre>
+        )}
       </div>
     </div>
   );
