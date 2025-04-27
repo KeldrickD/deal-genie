@@ -22,7 +22,9 @@ export type Lead = {
 
 // Debug logging helper
 function debugLog(message: string, data?: any) {
-  if (process.env.ENABLE_DEBUG_LOGS === 'true') {
+  // Always enable during implementation phase to help debug
+  const enableLogs = process.env.ENABLE_DEBUG_LOGS === 'true' || true;
+  if (enableLogs) {
     console.log(`[REDFIN SCRAPER] ${message}`);
     if (data) {
       console.log(typeof data === 'object' ? JSON.stringify(data, null, 2) : data);
@@ -50,23 +52,39 @@ export async function scrapeRedfin(
       return getMockRedfinData(city, state, keywords, listingType);
     }
 
-    // Format city and state for the URL
-    const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
-    const formattedState = stateAbbr.toLowerCase();
+    // Try direct search first - this is more accurate for finding the correct location
+    const directResult = await tryDirectSearch(city, stateAbbr);
+    let searchUrl = '';
+    let regionId = '';
     
-    // Construct the search URL
-    const searchUrl = `https://www.redfin.com/city/${formattedCity}-${formattedState}`;
-    debugLog(`Searching Redfin at URL: ${searchUrl}`);
+    if (directResult) {
+      searchUrl = directResult.url;
+      regionId = directResult.id;
+      debugLog(`Using direct search result: ${searchUrl}`);
+    } else {
+      // Fallback to the constructed URL
+      const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
+      const formattedState = stateAbbr.toLowerCase();
+      searchUrl = `https://www.redfin.com/${formattedState}/${formattedCity}`;
+      debugLog(`Using constructed search URL: ${searchUrl}`);
+    }
     
-    // First fetch the search page to get search parameters
+    // Add listing type filter to URL if needed
+    if (listingType === 'fsbo' && !searchUrl.includes('/fsbo')) {
+      searchUrl += '/fsbo';
+      debugLog('Added FSBO filter to URL');
+    }
+    
+    // Fetch the search page
     const searchResponse = await fetch(searchUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
         'Connection': 'keep-alive',
         'Upgrade-Insecure-Requests': '1',
-        'Cache-Control': 'max-age=0'
+        'Referer': 'https://www.redfin.com/'
       }
     });
 
@@ -89,43 +107,118 @@ export async function scrapeRedfin(
     $('script').each((i, elem) => {
       const scriptContent = $(elem).html() || '';
       
-      // Look for Redfin's data in script tags
-      if (scriptContent.includes('window.REACT_DATA')) {
-        debugLog('Found window.REACT_DATA script tag');
+      // Look for Redfin's data in script tags - check multiple patterns
+      if (scriptContent.includes('__PRELOADED_STATE__')) {
+        debugLog('Found __PRELOADED_STATE__ script tag');
         try {
-          // Extract the JSON data using regex
-          const match = scriptContent.match(/window\.REACT_DATA\s*=\s*({.*})/);
+          // Extract the JSON data using regex - Redfin often stores data in this format
+          const match = scriptContent.match(/\b__PRELOADED_STATE__\s*=\s*({.*});/);
           if (match && match[1]) {
             apiData = JSON.parse(match[1]);
-            debugLog('Successfully parsed Redfin data from script tag');
+            debugLog('Successfully parsed Redfin __PRELOADED_STATE__ data');
           }
         } catch (error) {
           debugLog(`Error parsing script tag data: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      } 
+      else if (scriptContent.includes('window.REACT_DATA')) {
+        debugLog('Found window.REACT_DATA script tag');
+        try {
+          // Extract the JSON data using regex - improved pattern
+          const match = scriptContent.match(/window\.REACT_DATA\s*=\s*({.+});/);
+          if (match && match[1]) {
+            try {
+              apiData = JSON.parse(match[1]);
+              debugLog('Successfully parsed REACT_DATA data');
+            } catch (parseError) {
+              debugLog(`JSON parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+            }
+          }
+        } catch (error) {
+          debugLog(`Error with REACT_DATA script: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+      // Also check for REST API data
+      else if (scriptContent.includes('_GTM_GLOBAL_DATA')) {
+        debugLog('Found _GTM_GLOBAL_DATA script tag');
+        try {
+          const match = scriptContent.match(/var\s+_GTM_GLOBAL_DATA\s*=\s*({.+});/);
+          if (match && match[1]) {
+            const gtmData = JSON.parse(match[1]);
+            if (gtmData && gtmData.searchData) {
+              apiData = gtmData;
+              debugLog('Successfully parsed GTM data');
+            }
+          }
+        } catch (error) {
+          debugLog(`Error with GTM script: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     });
     
     // If we found data, extract the properties
-    if (apiData && apiData.homes && Array.isArray(apiData.homes.homes)) {
-      debugLog(`Found ${apiData.homes.homes.length} properties in Redfin data`);
-      properties = apiData.homes.homes;
-    } else {
-      // Try using the Redfin API directly as described in the tutorial
+    if (apiData) {
+      debugLog('Found API data, attempting to extract properties');
+      
+      // Try different property paths based on Redfin's data structure
+      if (apiData.homes && Array.isArray(apiData.homes.homes)) {
+        properties = apiData.homes.homes;
+        debugLog(`Found ${properties.length} properties in homes.homes path`);
+      } 
+      else if (apiData.payload && apiData.payload.homes) {
+        properties = apiData.payload.homes;
+        debugLog(`Found ${properties.length} properties in payload.homes path`);
+      }
+      else if (apiData.searchResults && apiData.searchResults.homes) {
+        properties = apiData.searchResults.homes;
+        debugLog(`Found ${properties.length} properties in searchResults.homes path`);
+      }
+      else if (apiData.searchData && apiData.searchData.homes) {
+        properties = apiData.searchData.homes;
+        debugLog(`Found ${properties.length} properties in searchData.homes path`);
+      }
+    }
+    
+    // If we didn't extract properties from the initial page data, try the API
+    if (!properties || properties.length === 0) {
       debugLog('No properties found in page data, trying API...');
       
-      // Extract search parameters from the page if possible
-      const regionId = $('script[data-rf-test-id="RDC_REACT_APP_STATE"]').attr('data-region-id');
+      // Try multiple ways to find the region ID
+      if (!regionId) {
+        const metaRegionId = $('meta[name="region-id"]').attr('content');
+        if (metaRegionId) {
+          regionId = metaRegionId;
+          debugLog(`Found region ID from meta tag: ${regionId}`);
+        }
+      }
+      
+      // Also try the script tag way
+      if (!regionId) {
+        regionId = $('script[data-rf-test-id="RDC_REACT_APP_STATE"]').attr('data-region-id') || '';
+        if (regionId) {
+          debugLog(`Found region ID from script tag: ${regionId}`);
+        }
+      }
       
       if (regionId) {
-        const apiUrl = `https://www.redfin.com/stingray/api/gis?al=1&include_nearby_homes=true&market=global&num_homes=350&ord=redfin-recommended-asc&page_number=1&region_id=${regionId}&region_type=6&sf=1,2,3,5,6,7&status=9&uipt=1,2,3,4,5,6,7,8&v=8`;
+        // Try a different API endpoint - more reliable for property listings
+        let apiUrl = `https://www.redfin.com/stingray/api/gis-search?al=1&include_nearby_homes=true&market=global&num_homes=350&ord=redfin-recommended-asc&page_number=1&region_id=${regionId}&region_type=6&sf=1,2,3,5,6,7&status=9&uipt=1,2,3,4,5,6,7,8&v=8`;
+        
+        // Add listing type filter if needed
+        if (listingType === 'fsbo') {
+          apiUrl += '&is_fsbo=true';
+        } else if (listingType === 'agent') {
+          apiUrl += '&is_fsbo=false';
+        }
         
         debugLog(`Fetching from Redfin API: ${apiUrl}`);
         
         const apiResponse = await fetch(apiUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': searchUrl
           }
         });
         
@@ -146,6 +239,39 @@ export async function scrapeRedfin(
         } else {
           debugLog(`API request failed: ${apiResponse.status} ${apiResponse.statusText}`);
         }
+        
+        // If still no properties, try the search API directly
+        if (!properties || properties.length === 0) {
+          debugLog('No properties from GIS API, trying search API...');
+          
+          const searchApiUrl = `https://www.redfin.com/stingray/api/home-search/search?start=0&count=50&market=${city}&region_id=${regionId}&region_type=6&sf=1,2,3,5,6,7&v=8`;
+          
+          const searchApiResponse = await fetch(searchApiUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.9',
+              'Referer': searchUrl
+            }
+          });
+          
+          if (searchApiResponse.ok) {
+            const text = await searchApiResponse.text();
+            const jsonText = text.replace(/^\/\/\n/, '');
+            
+            try {
+              const data = JSON.parse(jsonText);
+              if (data.payload && data.payload.homes) {
+                properties = data.payload.homes;
+                debugLog(`Found ${properties.length} properties from Search API`);
+              }
+            } catch (error) {
+              debugLog(`Error parsing Search API response: ${error instanceof Error ? error.message : String(error)}`);
+            }
+          }
+        }
+      } else {
+        debugLog('Could not find region ID for API request');
       }
     }
     
@@ -159,20 +285,60 @@ export async function scrapeRedfin(
     
     for (const property of properties) {
       try {
+        debugLog(`Processing property: ${JSON.stringify(property).substring(0, 200)}...`);
+        
         let isFsbo = false;
         let isAgent = true;
         
         // Check if it's FSBO - Redfin doesn't always clearly label FSBO listings
-        // We'll check for keywords in the description
-        if (property.marketingRemarks && 
-           (property.marketingRemarks.toLowerCase().includes('for sale by owner') || 
-            property.marketingRemarks.toLowerCase().includes('fsbo'))) {
-          isFsbo = true;
-          isAgent = false;
+        // We'll check for keywords in multiple fields
+        const checkFields = [
+          property.marketingRemarks,
+          property.remarksAccessor,
+          property.description,
+          property.propertyDescription,
+          property.name,
+          property.streetLine
+        ];
+        
+        const fsboKeywords = ['for sale by owner', 'fsbo', 'owner sale', 'no agent', 'private seller', 'direct from owner'];
+        
+        for (const field of checkFields) {
+          if (field && typeof field === 'string') {
+            const fieldLower = field.toLowerCase();
+            for (const keyword of fsboKeywords) {
+              if (fieldLower.includes(keyword)) {
+                isFsbo = true;
+                isAgent = false;
+                debugLog(`Detected FSBO listing based on keyword "${keyword}" in field`);
+                break;
+              }
+            }
+            if (isFsbo) break;
+          }
+        }
+        
+        // Check if seller is not a broker/agent
+        if (property.brokerName === undefined || property.brokerName === null || property.brokerName === '') {
+          // If no broker name is present, it might be FSBO
+          if (!isFsbo) {
+            debugLog('No broker name found, might be FSBO');
+          }
+        }
+        
+        // Check listingType field if available
+        if (property.listingType) {
+          const listingTypeLower = String(property.listingType).toLowerCase();
+          if (listingTypeLower.includes('fsbo') || listingTypeLower.includes('by owner')) {
+            isFsbo = true;
+            isAgent = false;
+            debugLog(`Detected FSBO listing based on listingType: ${property.listingType}`);
+          }
         }
         
         // Skip if we're filtering by listing type and this doesn't match
         if ((listingType === 'fsbo' && !isFsbo) || (listingType === 'agent' && !isAgent)) {
+          debugLog(`Skipping property based on listing type filter: requested=${listingType}, actual=${isFsbo ? 'fsbo' : 'agent'}`);
           continue;
         }
         
@@ -329,4 +495,57 @@ function getMockRedfinData(city: string, state: string, keywords: string[] = [],
   }
   
   return mockData;
+}
+
+// Try a direct search first
+async function tryDirectSearch(city: string, state: string) {
+  try {
+    const url = `https://www.redfin.com/stingray/do/location-autocomplete?location=${encodeURIComponent(city+', '+state)}&start=0&count=10&v=2&market=global&al=1&iss=false&ooa=true&mrs=false`;
+    debugLog(`Trying direct location search: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      }
+    });
+    
+    if (response.ok) {
+      const text = await response.text();
+      const jsonText = text.replace(/^\/\/\n/, '');
+      
+      const data = JSON.parse(jsonText);
+      if (data.payload && data.payload.exactMatch) {
+        const match = data.payload.exactMatch;
+        debugLog(`Found exact match: ${match.name} (ID: ${match.id})`);
+        
+        if (match.url) {
+          return {
+            url: `https://www.redfin.com${match.url}`,
+            id: match.id
+          };
+        }
+      } else if (data.payload && data.payload.sections) {
+        // Try to find the first city match
+        for (const section of data.payload.sections) {
+          if (section.rows && section.rows.length > 0) {
+            const firstMatch = section.rows[0];
+            debugLog(`Found first match: ${firstMatch.name}`);
+            
+            if (firstMatch.url) {
+              return {
+                url: `https://www.redfin.com${firstMatch.url}`,
+                id: firstMatch.id
+              };
+            }
+          }
+        }
+      }
+    }
+  } catch (error) {
+    debugLog(`Error in direct search: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  
+  return null;
 } 
