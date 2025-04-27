@@ -25,8 +25,8 @@ export type Lead = {
 
 // Debug logging helper
 function debugLog(message: string, data?: any) {
-  // Always enable during implementation phase to help debug
-  const enableLogs = process.env.ENABLE_DEBUG_LOGS === 'true' || true;
+  // Always enable logging to help diagnose scraper issues
+  const enableLogs = true;
   if (enableLogs) {
     console.log(`[REDFIN SCRAPER] ${message}`);
     if (data) {
@@ -728,8 +728,8 @@ async function tryAlternativePropertySearch(
     debugLog(`Trying alternative web search: ${searchUrl}`);
     
     const browserHeaders = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
       'Cache-Control': 'max-age=0'
     };
@@ -1113,6 +1113,9 @@ export async function getProperties(
       }
     } catch (error) {
       debugLog(`Error in getProperties: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error && error.stack) {
+        debugLog(`Error stack: ${error.stack}`);
+      }
       retryCount++;
       
       // Add a delay before retrying
@@ -1157,7 +1160,7 @@ async function getPropertiesFromCSV(
     
     // Build the CSV API URL with the search ID
     const timestamp = Date.now();
-    const csvUrl = `https://www.redfin.com/stingray/api/gis-csv?al=1&market=false&num_homes=350&ord=redfin-recommended-asc&page_number=1&region_id=${searchId}&region_type=6&sf=1,2,3,5,6,7&status=9&uipt=1,2,3,4,5,6,7,8&v=8&t=${timestamp}`;
+    const csvUrl = `https://www.redfin.com/stingray/api/gis-csv?al=1&include_pending_homes=true&market=false&num_homes=500&ord=redfin-recommended-asc&page_number=1&region_id=${searchId}&region_type=6&sf=1,2,3,5,6,7&status=1,9&uipt=1,2,3,4,5,6,7,8&v=8&t=${timestamp}`;
     
     debugLog(`Fetching CSV data from: ${csvUrl}`);
     
@@ -1168,12 +1171,12 @@ async function getPropertiesFromCSV(
     });
     
     // Sometimes the region_type is different (city vs county vs zip)
-    if (!response.ok || (await response.text()).trim().length < 100) {
+    if (!response.ok || !(await response.clone().text()).trim().includes(',')) {
       debugLog('First attempt failed, trying with different region_type values');
       
       // Try alternative region types
       for (const regionType of [1, 2, 5, 7, 8, 9]) {
-        const altUrl = `https://www.redfin.com/stingray/api/gis-csv?al=1&market=false&num_homes=350&ord=redfin-recommended-asc&page_number=1&region_id=${searchId}&region_type=${regionType}&sf=1,2,3,5,6,7&status=9&uipt=1,2,3,4,5,6,7,8&v=8&t=${timestamp}`;
+        const altUrl = `https://www.redfin.com/stingray/api/gis-csv?al=1&include_pending_homes=true&market=false&num_homes=500&ord=redfin-recommended-asc&page_number=1&region_id=${searchId}&region_type=${regionType}&sf=1,2,3,5,6,7&status=1,9&uipt=1,2,3,4,5,6,7,8&v=8&t=${timestamp}`;
         
         debugLog(`Trying region_type ${regionType}: ${altUrl}`);
         
@@ -1182,12 +1185,10 @@ async function getPropertiesFromCSV(
           redirect: 'follow'
         });
         
-        if (response.ok) {
-          const text = await response.text();
-          if (text.trim().length > 100 && text.includes(',')) {
-            debugLog(`Found working region_type: ${regionType}`);
-            break;
-          }
+        const text = await response.clone().text();
+        if (response.ok && text.trim().length > 100 && text.includes(',')) {
+          debugLog(`Found working region_type: ${regionType}`);
+          break;
         }
       }
     }
@@ -1463,13 +1464,13 @@ async function getSearchId(city: string, state: string, headers: Record<string, 
 // Helper function to get enhanced headers
 function getEnhancedHeaders(): Record<string, string> {
   return {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
     'Accept-Language': 'en-US,en;q=0.9',
     'Accept-Encoding': 'gzip, deflate, br',
     'Connection': 'keep-alive',
     'Cache-Control': 'max-age=0',
-    'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+    'Sec-Ch-Ua': '"Google Chrome";v="124", "Not;A=Brand";v="8", "Chromium";v="124"',
     'Sec-Ch-Ua-Mobile': '?0',
     'Sec-Ch-Ua-Platform': '"Windows"',
     'Sec-Fetch-Dest': 'document',
