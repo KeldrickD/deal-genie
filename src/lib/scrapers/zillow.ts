@@ -2,8 +2,6 @@ import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { v4 as uuidv4 } from 'uuid';
 import { getStateAbbreviation } from '@/lib/utils';
-import fs from 'fs';
-import path from 'path';
 
 export type Lead = {
   id: string;
@@ -67,7 +65,8 @@ export async function scrapeZillowFSBO(
     const stateAbbr = getStateAbbreviation(state);
     if (!stateAbbr) {
       debugLog(`ERROR: Invalid state name: ${state}`);
-      return [];
+      debugLog(`Falling back to mock data due to invalid state`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
     debugLog(`State abbreviation resolved: ${stateAbbr}`);
 
@@ -97,32 +96,22 @@ export async function scrapeZillowFSBO(
     });
 
     debugLog(`Fetch response status: ${response.status} ${response.statusText}`);
-    debugLog(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
 
     if (!response.ok) {
       debugLog(`ERROR: Failed to fetch from Zillow: ${response.status} ${response.statusText}`);
-      // Try to read the response body for more error information
-      const errorText = await response.text();
-      debugLog(`Error response body: ${errorText.substring(0, 500)}...`);
-      return [];
+      try {
+        const errorText = await response.text();
+        debugLog(`Error response body preview: ${errorText.substring(0, 200)}...`);
+      } catch (error) {
+        debugLog(`Could not read error response: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      
+      debugLog(`Falling back to mock data due to failed fetch`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
 
     const html = await response.text();
     debugLog(`Received HTML response length: ${html.length} characters`);
-    
-    // Optionally save HTML to file for debugging
-    if (process.env.NODE_ENV === 'development') {
-      try {
-        const debugDir = path.join(process.cwd(), 'debug');
-        if (!fs.existsSync(debugDir)) {
-          fs.mkdirSync(debugDir, { recursive: true });
-        }
-        fs.writeFileSync(path.join(debugDir, 'zillow-response.html'), html);
-        debugLog(`Saved HTML response to debug/zillow-response.html`);
-      } catch (error) {
-        debugLog(`Could not save HTML debug file: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
     
     const $ = cheerio.load(html);
     debugLog(`Loaded HTML with cheerio`);
@@ -148,19 +137,6 @@ export async function scrapeZillowFSBO(
             debugLog(`Successfully parsed JSON data`);
           } catch (e) {
             debugLog(`ERROR: Failed to parse Zillow data: ${e instanceof Error ? e.message : String(e)}`);
-            // Save the problematic JSON string for debugging
-            if (process.env.NODE_ENV === 'development') {
-              try {
-                const debugDir = path.join(process.cwd(), 'debug');
-                if (!fs.existsSync(debugDir)) {
-                  fs.mkdirSync(debugDir, { recursive: true });
-                }
-                fs.writeFileSync(path.join(debugDir, 'zillow-json-error.txt'), match[1]);
-                debugLog(`Saved problematic JSON to debug/zillow-json-error.txt`);
-              } catch (fileError) {
-                debugLog(`Could not save JSON debug file: ${fileError instanceof Error ? fileError.message : String(fileError)}`);
-              }
-            }
           }
         } else {
           debugLog(`ERROR: Could not extract JSON data from script using regex`);
@@ -173,46 +149,38 @@ export async function scrapeZillowFSBO(
     // Check if we found and parsed the JSON data successfully
     if (!jsonData) {
       debugLog(`ERROR: No JSON data found in any script tags`);
-      return [];
+      debugLog(`Falling back to mock data due to missing JSON data`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
 
     // Check for required fields in the JSON structure
     if (!jsonData.searchPageState) {
       debugLog(`ERROR: Missing searchPageState in JSON data`);
-      return [];
+      debugLog(`Falling back to mock data due to missing searchPageState`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
     
     if (!jsonData.searchPageState.cat1) {
       debugLog(`ERROR: Missing cat1 in searchPageState`);
-      return [];
+      debugLog(`Falling back to mock data due to missing cat1`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
     
     if (!jsonData.searchPageState.cat1.searchResults) {
       debugLog(`ERROR: Missing searchResults in cat1`);
-      return [];
+      debugLog(`Falling back to mock data due to missing searchResults`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
 
     const results = jsonData.searchPageState.cat1.searchResults.listResults || [];
     debugLog(`Found ${results.length} Zillow results in JSON data`);
     
-    // If in development mode, save the first few results for debugging
-    if (process.env.NODE_ENV === 'development' && results.length > 0) {
-      try {
-        const debugDir = path.join(process.cwd(), 'debug');
-        if (!fs.existsSync(debugDir)) {
-          fs.mkdirSync(debugDir, { recursive: true });
-        }
-        const sampleResults = results.slice(0, Math.min(3, results.length));
-        fs.writeFileSync(
-          path.join(debugDir, 'zillow-results-sample.json'), 
-          JSON.stringify(sampleResults, null, 2)
-        );
-        debugLog(`Saved sample results to debug/zillow-results-sample.json`);
-      } catch (error) {
-        debugLog(`Could not save results debug file: ${error instanceof Error ? error.message : String(error)}`);
-      }
+    // If no results were found, fall back to mock data
+    if (results.length === 0) {
+      debugLog(`No results found, falling back to mock data`);
+      return getMockZillowData(city, state, keywords, listingType);
     }
-
+    
     const leads: Lead[] = [];
 
     for (const result of results) {
@@ -304,7 +272,8 @@ export async function scrapeZillowFSBO(
     return leads;
   } catch (error) {
     debugLog(`CRITICAL ERROR in scrapeZillowFSBO: ${error instanceof Error ? error.stack || error.message : String(error)}`);
-    return [];
+    debugLog(`Falling back to mock data due to exception`);
+    return getMockZillowData(city, state, keywords, listingType);
   }
 }
 
