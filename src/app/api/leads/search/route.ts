@@ -29,8 +29,8 @@ function safeJsonResponse(data: any, status = 200) {
   }
 }
 
-// TEMPORARY: For debugging, allow bypassing auth in development
-const BYPASS_AUTH = process.env.NODE_ENV === 'development';
+// TEMPORARY: For debugging, allow bypassing auth in development or with env variable
+const BYPASS_AUTH = process.env.NODE_ENV === 'development' || process.env.ALLOW_AUTH_BYPASS === 'true';
 
 export async function POST(request: NextRequest) {
   // Global try-catch to ensure we always return a valid response
