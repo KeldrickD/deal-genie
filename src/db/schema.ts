@@ -1,4 +1,5 @@
 import { relations, sql } from 'drizzle-orm';
+import { pgTable, uuid, text, integer, timestamp } from 'drizzle-orm/pg-core';
 
 // CRM Leads Table
 export const CrmLeads = pgTable('crm_leads', {
@@ -19,6 +20,12 @@ export const CrmLeads = pgTable('crm_leads', {
   keywordsMatched: text('keywords_matched'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
+// Define Users table schema for relations
+export const Users = pgTable('users', {
+  id: text('id').primaryKey(),
+  // other fields would go here
 });
 
 // CRM Leads Relations
