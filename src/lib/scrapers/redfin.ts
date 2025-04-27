@@ -1655,37 +1655,4 @@ async function parseCSV(csvData: string): Promise<any[]> {
     debugLog(`Error parsing CSV: ${error instanceof Error ? error.message : String(error)}`);
     return [];
   }
-}
-
-// Helper function to parse CSV line, handling quoted values correctly
-function parseCSVLine(line: string): string[] {
-  const result: string[] = [];
-  let current = '';
-  let inQuotes = false;
-  
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    
-    if (char === '"') {
-      // Toggle the inQuotes state
-      if (inQuotes && i + 1 < line.length && line[i + 1] === '"') {
-        // Handle escaped quotes (two double quotes in a row)
-        current += '"';
-        i++; // Skip the next quote
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === ',' && !inQuotes) {
-      // End of field
-      result.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  
-  // Add the last field
-  result.push(current);
-  
-  return result;
 } 
