@@ -1,20 +1,22 @@
 /**
- * Retries an async function with exponential backoff.
- * @param fn      Function that returns a Promise<T>
- * @param retries Number of retry attempts (default 3)
- * @param delay   Initial delay in ms (default 500)
+ * Utility function to retry a promise-based function with delay between attempts
+ * 
+ * @param fn Function to retry
+ * @param retries Maximum number of retries
+ * @param delay Delay between retries in ms
+ * @returns Promise that resolves with the result of the function or rejects after max retries
  */
 export async function retry<T>(
   fn: () => Promise<T>,
-  retries = 3,
-  delay = 500
+  retries: number = 3,
+  delay: number = 1000
 ): Promise<T> {
   try {
     return await fn();
-  } catch (err) {
-    if (retries <= 0) throw err;
-    console.warn(`Retrying after error: ${err}. ${retries} retries left.`);
-    await new Promise((r) => setTimeout(r, delay));
-    return retry(fn, retries - 1, delay * 2);
+  } catch (error) {
+    if (retries <= 1) throw error;
+    
+    await new Promise(resolve => setTimeout(resolve, delay));
+    return retry(fn, retries - 1, delay);
   }
 } 
