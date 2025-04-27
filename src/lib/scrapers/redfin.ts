@@ -1482,13 +1482,6 @@ function getEnhancedHeaders(): Record<string, string> {
   };
 }
 
-// Debug logging function
-function debugLog(message: string): void {
-  if (process.env.DEBUG_SCRAPERS === 'true') {
-    console.log(`[Redfin Scraper] ${message}`);
-  }
-}
-
 // Define the parseLocation function
 function parseLocation(location: string): { city: string; state: string } {
   // Default to empty values
