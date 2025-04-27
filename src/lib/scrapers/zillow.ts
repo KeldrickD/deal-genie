@@ -2,6 +2,8 @@ import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { v4 as uuidv4 } from 'uuid';
 import { getStateAbbreviation } from '@/lib/utils';
+import fs from 'fs';
+import path from 'path';
 
 export type Lead = {
   id: string;
@@ -44,6 +46,14 @@ interface ZillowData {
   [key: string]: any;
 }
 
+// Debug logger function
+function debugLog(message: string, data?: any) {
+  console.log(`[ZILLOW SCRAPER DEBUG] ${message}`);
+  if (data) {
+    console.log(JSON.stringify(data, null, 2));
+  }
+}
+
 export async function scrapeZillowFSBO(
   city: string, 
   state: string, 
@@ -51,11 +61,15 @@ export async function scrapeZillowFSBO(
   listingType: 'fsbo' | 'agent' | 'both' = 'both'
 ): Promise<Lead[]> {
   try {
+    debugLog(`Starting Zillow scrape for ${city}, ${state}, listing type: ${listingType}`);
+    debugLog(`Keywords: ${keywords.join(', ')}`);
+
     const stateAbbr = getStateAbbreviation(state);
     if (!stateAbbr) {
-      console.error(`Invalid state name: ${state}`);
+      debugLog(`ERROR: Invalid state name: ${state}`);
       return [];
     }
+    debugLog(`State abbreviation resolved: ${stateAbbr}`);
 
     const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
     const formattedState = stateAbbr.toLowerCase();
@@ -69,109 +83,227 @@ export async function scrapeZillowFSBO(
       url += 'houses/';
     }
     
-    console.log(`Scraping Zillow for ${city}, ${state} (${listingType}): ${url}`);
+    debugLog(`Attempting to fetch URL: ${url}`);
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Cache-Control': 'max-age=0'
       }
     });
 
+    debugLog(`Fetch response status: ${response.status} ${response.statusText}`);
+    debugLog(`Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2)}`);
+
     if (!response.ok) {
-      console.error(`Failed to fetch from Zillow: ${response.status} ${response.statusText}`);
+      debugLog(`ERROR: Failed to fetch from Zillow: ${response.status} ${response.statusText}`);
+      // Try to read the response body for more error information
+      const errorText = await response.text();
+      debugLog(`Error response body: ${errorText.substring(0, 500)}...`);
       return [];
     }
 
     const html = await response.text();
+    debugLog(`Received HTML response length: ${html.length} characters`);
+    
+    // Optionally save HTML to file for debugging
+    if (process.env.NODE_ENV === 'development') {
+      try {
+        const debugDir = path.join(process.cwd(), 'debug');
+        if (!fs.existsSync(debugDir)) {
+          fs.mkdirSync(debugDir, { recursive: true });
+        }
+        fs.writeFileSync(path.join(debugDir, 'zillow-response.html'), html);
+        debugLog(`Saved HTML response to debug/zillow-response.html`);
+      } catch (error) {
+        debugLog(`Could not save HTML debug file: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    
     const $ = cheerio.load(html);
+    debugLog(`Loaded HTML with cheerio`);
     
     // Find the Zillow data in the script tag
-    let jsonData: ZillowData | null = null;
+    let jsonData: any = null;
+    let scriptTags = 0;
+    let preloadedStateScripts = 0;
+
     $('script').each((i, elem) => {
+      scriptTags++;
       const scriptContent = $(elem).html() || '';
+      
       if (scriptContent.includes('__PRELOADED_STATE__')) {
+        preloadedStateScripts++;
+        debugLog(`Found script with __PRELOADED_STATE__ (${preloadedStateScripts})`);
+        
         const match = scriptContent.match(/window\['__PRELOADED_STATE__'\]\s*=\s*({.*});/);
         if (match && match[1]) {
+          debugLog(`Extracted JSON data from script`);
           try {
-            jsonData = JSON.parse(match[1]) as ZillowData;
+            jsonData = JSON.parse(match[1]);
+            debugLog(`Successfully parsed JSON data`);
           } catch (e) {
-            console.error('Failed to parse Zillow data:', e);
+            debugLog(`ERROR: Failed to parse Zillow data: ${e instanceof Error ? e.message : String(e)}`);
+            // Save the problematic JSON string for debugging
+            if (process.env.NODE_ENV === 'development') {
+              try {
+                const debugDir = path.join(process.cwd(), 'debug');
+                if (!fs.existsSync(debugDir)) {
+                  fs.mkdirSync(debugDir, { recursive: true });
+                }
+                fs.writeFileSync(path.join(debugDir, 'zillow-json-error.txt'), match[1]);
+                debugLog(`Saved problematic JSON to debug/zillow-json-error.txt`);
+              } catch (fileError) {
+                debugLog(`Could not save JSON debug file: ${fileError instanceof Error ? fileError.message : String(fileError)}`);
+              }
+            }
           }
+        } else {
+          debugLog(`ERROR: Could not extract JSON data from script using regex`);
         }
       }
     });
 
-    if (!jsonData || !jsonData.searchPageState || !jsonData.searchPageState.cat1 || !jsonData.searchPageState.cat1.searchResults) {
-      console.error('Failed to extract property data from Zillow');
+    debugLog(`Processed ${scriptTags} script tags, found ${preloadedStateScripts} with __PRELOADED_STATE__`);
+
+    // Check if we found and parsed the JSON data successfully
+    if (!jsonData) {
+      debugLog(`ERROR: No JSON data found in any script tags`);
+      return [];
+    }
+
+    // Check for required fields in the JSON structure
+    if (!jsonData.searchPageState) {
+      debugLog(`ERROR: Missing searchPageState in JSON data`);
+      return [];
+    }
+    
+    if (!jsonData.searchPageState.cat1) {
+      debugLog(`ERROR: Missing cat1 in searchPageState`);
+      return [];
+    }
+    
+    if (!jsonData.searchPageState.cat1.searchResults) {
+      debugLog(`ERROR: Missing searchResults in cat1`);
       return [];
     }
 
     const results = jsonData.searchPageState.cat1.searchResults.listResults || [];
-    console.log(`Found ${results.length} Zillow results`);
+    debugLog(`Found ${results.length} Zillow results in JSON data`);
+    
+    // If in development mode, save the first few results for debugging
+    if (process.env.NODE_ENV === 'development' && results.length > 0) {
+      try {
+        const debugDir = path.join(process.cwd(), 'debug');
+        if (!fs.existsSync(debugDir)) {
+          fs.mkdirSync(debugDir, { recursive: true });
+        }
+        const sampleResults = results.slice(0, Math.min(3, results.length));
+        fs.writeFileSync(
+          path.join(debugDir, 'zillow-results-sample.json'), 
+          JSON.stringify(sampleResults, null, 2)
+        );
+        debugLog(`Saved sample results to debug/zillow-results-sample.json`);
+      } catch (error) {
+        debugLog(`Could not save results debug file: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
 
     const leads: Lead[] = [];
 
     for (const result of results) {
-      // Filter by city and state to ensure we only get properties in the requested location
-      const propertyCity = result.addressCity || '';
-      const propertyState = result.addressState || '';
-      
-      // Skip properties that don't match the requested city/state
-      if (
-        propertyCity.toLowerCase() !== city.toLowerCase() ||
-        propertyState.toLowerCase() !== stateAbbr.toLowerCase()
-      ) {
-        continue;
+      try {
+        // Extract and log all the raw data for debugging
+        debugLog(`Processing result:`, {
+          addressCity: result.addressCity,
+          addressState: result.addressState,
+          address: result.address,
+          price: result.price,
+          daysOnZillow: result.daysOnZillow,
+          isListedByOwner: result.isListedByOwner,
+          statusType: result.statusType
+        });
+        
+        // Filter by city and state to ensure we only get properties in the requested location
+        const propertyCity = result.addressCity || '';
+        const propertyState = result.addressState || '';
+        
+        // Skip properties that don't match the requested city/state
+        if (
+          propertyCity.toLowerCase() !== city.toLowerCase() ||
+          propertyState.toLowerCase() !== stateAbbr.toLowerCase()
+        ) {
+          debugLog(`Filtering out property in ${propertyCity}, ${propertyState} (requested: ${city}, ${stateAbbr})`);
+          continue;
+        }
+        
+        const price = parseFloat(result.price?.replace(/[^0-9.]/g, '') || '0');
+        debugLog(`Parsed price: ${price} from ${result.price}`);
+        
+        const address = result.address || '';
+        const propertyZip = result.addressZipcode || '';
+        const fullAddress = `${address}, ${propertyCity}, ${propertyState} ${propertyZip}`;
+        
+        const daysOnMarket = parseInt(result.daysOnZillow || '0', 10);
+        debugLog(`Parsed days on market: ${daysOnMarket} from ${result.daysOnZillow}`);
+        
+        const description = result.description || '';
+        
+        // Extract property type
+        let propertyType = 'unknown';
+        if (result.isPremierBuilder) {
+          propertyType = 'new construction';
+        } else if (result.statusType === 'FOR_SALE' && result.isListedByOwner) {
+          propertyType = 'fsbo';
+        } else if (result.statusType === 'FOR_SALE') {
+          propertyType = 'for sale';
+        } else if (result.statusType === 'AUCTION') {
+          propertyType = 'auction'; 
+        }
+        debugLog(`Determined property type: ${propertyType}`);
+        
+        // Determine if the keywords match
+        const keywordsMatched = keywords.filter(keyword => 
+          description.toLowerCase().includes(keyword.toLowerCase()) || 
+          address.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        // Log keyword matches
+        if (keywords.length > 0) {
+          debugLog(`Keywords matched: ${keywordsMatched.length > 0 ? keywordsMatched.join(', ') : 'none'}`);
+        }
+        
+        const lead: Lead = {
+          id: uuidv4(),
+          address: fullAddress,
+          city: propertyCity,
+          state: propertyState,
+          price,
+          days_on_market: daysOnMarket,
+          description,
+          source: 'zillow',
+          keywords_matched: keywordsMatched,
+          listing_url: `https://www.zillow.com${result.detailUrl}`,
+          created_at: new Date().toISOString(),
+          property_type: propertyType,
+          listing_type: result.isListedByOwner ? 'fsbo' : 'agent'
+        };
+        
+        debugLog(`Created lead for property: ${fullAddress}`);
+        leads.push(lead);
+      } catch (resultError) {
+        debugLog(`ERROR processing result: ${resultError instanceof Error ? resultError.message : String(resultError)}`);
       }
-      
-      const price = parseFloat(result.price?.replace(/[^0-9.]/g, '') || '0');
-      const address = result.address || '';
-      const propertyZip = result.addressZipcode || '';
-      const fullAddress = `${address}, ${propertyCity}, ${propertyState} ${propertyZip}`;
-      
-      const daysOnMarket = parseInt(result.daysOnZillow || '0', 10);
-      const description = result.description || '';
-      
-      // Extract property type
-      let propertyType = 'unknown';
-      if (result.isPremierBuilder) {
-        propertyType = 'new construction';
-      } else if (result.statusType === 'FOR_SALE' && result.isListedByOwner) {
-        propertyType = 'fsbo';
-      } else if (result.statusType === 'FOR_SALE') {
-        propertyType = 'for sale';
-      } else if (result.statusType === 'AUCTION') {
-        propertyType = 'auction'; 
-      }
-      
-      // Determine if the keywords match
-      const keywordsMatched = keywords.filter(keyword => 
-        description.toLowerCase().includes(keyword.toLowerCase()) || 
-        address.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      const lead: Lead = {
-        id: uuidv4(),
-        address: fullAddress,
-        city: propertyCity,
-        state: propertyState,
-        price,
-        days_on_market: daysOnMarket,
-        description,
-        source: 'zillow',
-        keywords_matched: keywordsMatched,
-        listing_url: `https://www.zillow.com${result.detailUrl}`,
-        created_at: new Date().toISOString(),
-        property_type: propertyType,
-        listing_type: result.isListedByOwner ? 'fsbo' : 'agent'
-      };
-      
-      leads.push(lead);
     }
 
+    debugLog(`Returning ${leads.length} leads after filtering`);
     return leads;
   } catch (error) {
-    console.error('Error scraping Zillow:', error);
+    debugLog(`CRITICAL ERROR in scrapeZillowFSBO: ${error instanceof Error ? error.stack || error.message : String(error)}`);
     return [];
   }
 }
