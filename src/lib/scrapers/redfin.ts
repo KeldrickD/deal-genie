@@ -723,57 +723,137 @@ async function tryAlternativePropertySearch(
     const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
     const formattedState = stateAbbr.toLowerCase();
     
-    // Use the Redfin web search
-    const searchUrl = `https://www.redfin.com/${formattedState}/${formattedCity}`;
-    debugLog(`Trying alternative web search: ${searchUrl}`);
-    
+    // Browser-like headers to avoid being detected as a bot
     const browserHeaders = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'max-age=0'
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'max-age=0',
+      'Connection': 'keep-alive',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1'
     };
     
-    const response = await fetch(searchUrl, {
-      headers: browserHeaders,
-      redirect: 'follow'
-    });
+    // Try different URL formats
+    const urlFormats = [
+      `https://www.redfin.com/${formattedState}/${formattedCity}`,
+      `https://www.redfin.com/${formattedState}/${formattedCity}/filter/property-type=house`,
+      `https://www.redfin.com/city/${formattedCity}-${formattedState}`,
+      `https://www.redfin.com/city/${formattedCity.replace(/-/g, '+')}-${formattedState}`,
+      `https://www.redfin.com/homes-for-sale/${formattedState}/${formattedCity}`,
+      `https://www.redfin.com/search/real-estate-agents/${formattedCity}-${formattedState}`
+    ];
     
-    if (!response.ok) {
-      debugLog(`Alternative search failed: ${response.status}`);
+    let html = '';
+    let finalUrl = '';
+    
+    // Try each URL format until one works
+    for (const url of urlFormats) {
+      debugLog(`Trying URL: ${url}`);
+      
+      try {
+        const response = await fetch(url, {
+          headers: browserHeaders,
+          redirect: 'follow'
+        });
+        
+        if (response.ok) {
+          finalUrl = response.url;
+          html = await response.text();
+          debugLog(`Success with URL: ${url}, final URL: ${finalUrl}, HTML length: ${html.length}`);
+          
+          if (html.length > 10000) {  // Only accept substantial HTML responses
+            break;
+          }
+        }
+      } catch (error) {
+        debugLog(`Error trying URL ${url}: ${error instanceof Error ? error.message : String(error)}`);
+        // Continue to the next URL
+      }
+    }
+    
+    if (html.length < 10000) {
+      debugLog(`Could not get valid HTML content from any URL`);
       return [];
     }
     
-    // Get the HTML content
-    const html = await response.text();
-    debugLog(`Got HTML content, length: ${html.length}`);
-    
-    if (html.length < 1000) {
-      debugLog(`HTML content too small, possibly blocked`);
-      return [];
-    }
-    
-    // Let's try to extract properties using regular expressions
+    // Process the HTML to extract property data
     const results: Lead[] = [];
     
     // Try extracting home data from JSON in the page
-    const homeDataMatch = html.match(/RED\.state\.results\s*=\s*({.*?"homes":[^]*?]);/);
+    const homeDataMatch = html.match(/RED\.state\.results\s*=\s*({.*?"homes":[^]*?});/) || 
+                         html.match(/("mapResultsData":[^]*?"propertyResults":[^}]*}),/) ||
+                         html.match(/"homes":\s*(\[.*?\])/) ||
+                         html.match(/("results":\[.*?\]),"mapResults"/);
+                         
     if (homeDataMatch && homeDataMatch[1]) {
       try {
-        const jsonStr = homeDataMatch[1].replace(/RED\.state\.results\s*=\s*/, '').replace(/;$/, '');
-        const homeData = JSON.parse(jsonStr);
+        let jsonStr = homeDataMatch[1];
+        // Clean up the JSON string if needed
+        if (jsonStr.endsWith(',')) {
+          jsonStr = jsonStr.slice(0, -1);
+        }
         
-        if (homeData.homes && Array.isArray(homeData.homes)) {
-          debugLog(`Found ${homeData.homes.length} homes in JSON data`);
+        // For map results data, wrap in object to parse properly
+        if (jsonStr.startsWith('"mapResultsData":')) {
+          jsonStr = '{' + jsonStr + '}';
+        }
+        
+        let homeData;
+        try {
+          homeData = JSON.parse(jsonStr);
+        } catch (e) {
+          // If parsing fails, try to extract from a JavaScript object notation
+          debugLog(`Initial JSON parse failed, trying alternative format`);
           
-          for (const home of homeData.homes) {
-            if (!home || !home.streetAddress || !home.priceInfo) continue;
+          // Try alternative JSON string formats
+          if (jsonStr.includes('"homes":')) {
+            const homesMatch = jsonStr.match(/"homes":\s*(\[.*?\])/);
+            if (homesMatch && homesMatch[1]) {
+              try {
+                homeData = { homes: JSON.parse(homesMatch[1]) };
+              } catch (err) {
+                debugLog(`Failed to parse homes JSON: ${err instanceof Error ? err.message : String(err)}`);
+              }
+            }
+          }
+        }
+        
+        // Check various possible data structures
+        let homes = [];
+        if (homeData?.homes && Array.isArray(homeData.homes)) {
+          homes = homeData.homes;
+          debugLog(`Found ${homes.length} homes in direct JSON data`);
+        } else if (homeData?.propertyResults && Array.isArray(homeData.propertyResults)) {
+          homes = homeData.propertyResults;
+          debugLog(`Found ${homes.length} homes in propertyResults`);
+        } else if (homeData?.mapResultsData?.propertyResults && Array.isArray(homeData.mapResultsData.propertyResults)) {
+          homes = homeData.mapResultsData.propertyResults;
+          debugLog(`Found ${homes.length} homes in mapResultsData.propertyResults`);
+        } else if (Array.isArray(homeData)) {
+          homes = homeData;
+          debugLog(`Found ${homes.length} homes in array format`);
+        }
+        
+        if (homes.length > 0) {
+          // Process each home
+          for (const home of homes) {
+            if (!home) continue;
             
-            const street = home.streetAddress || '';
+            // Extract address info
+            const street = home.streetAddress || home.address || '';
             const cityValue = home.city || city;
             const stateValue = home.state || state;
-            const zip = home.zip || '';
+            const zip = home.zip || home.zipcode || '';
             
+            // Skip if essential data is missing
+            if (!street) continue;
+            
+            // Build full address
             let fullAddress = street;
             if (zip) {
               fullAddress += `, ${cityValue}, ${stateValue} ${zip}`;
@@ -781,26 +861,34 @@ async function tryAlternativePropertySearch(
               fullAddress += `, ${cityValue}, ${stateValue}`;
             }
             
-            // Handle price
+            // Extract price
             let price = 0;
-            if (home.priceInfo && home.priceInfo.amount) {
+            if (home.price) {
+              price = typeof home.price === 'number' ? home.price : parseFloat(home.price.replace(/[^\d.]/g, ''));
+            } else if (home.priceInfo && home.priceInfo.amount) {
               price = home.priceInfo.amount;
+            } else if (home.priceLabel) {
+              price = parseFloat(home.priceLabel.replace(/[^\d.]/g, ''));
             }
             
-            // Skip if required data is missing
-            if (!street || !cityValue || !price) {
-              continue;
-            }
+            // Skip if price is missing or invalid
+            if (!price || isNaN(price)) continue;
             
-            // Description might be in remarks or not available
-            const description = home.remarksAccessor 
-              ? home.remarksAccessor 
-              : `${home.beds || 0} bed, ${home.baths || 0} bath, ${home.sqFt || 0} sqft`;
+            // Build description
+            const beds = home.beds || home.numBeds || 0;
+            const baths = home.baths || home.numBaths || 0;
+            const sqft = home.sqFt || home.sqft || home.squareFeet || 0;
             
-            // URL construction
+            const description = home.remarksAccessor || home.description || 
+              `${beds} bed, ${baths} bath, ${sqft} sqft property located at ${fullAddress}`;
+            
+            // Build URL
             const listingUrl = home.url 
-              ? `https://www.redfin.com${home.url}` 
+              ? (home.url.startsWith('http') ? home.url : `https://www.redfin.com${home.url}`)
               : `https://www.redfin.com/search/redirect?search=${encodeURIComponent(fullAddress)}`;
+            
+            // Get days on market
+            const daysOnMarket = home.daysOnRedfin || home.daysOnMarket || 0;
             
             // Check keywords in address and description
             const keywordsMatched = keywords.filter(keyword => {
@@ -810,6 +898,11 @@ async function tryAlternativePropertySearch(
               return inAddress || inDescription;
             });
             
+            // Only add if keywords match or if no keywords provided
+            if (keywords.length > 0 && keywordsMatched.length === 0) {
+              continue;
+            }
+            
             // Create lead object
             const lead: Lead = {
               id: uuidv4(),
@@ -818,7 +911,7 @@ async function tryAlternativePropertySearch(
               state: stateValue,
               zipcode: zip,
               price,
-              days_on_market: home.daysOnRedfin || 0,
+              days_on_market: daysOnMarket,
               description,
               source: 'redfin',
               keywords_matched: keywordsMatched,
@@ -828,10 +921,7 @@ async function tryAlternativePropertySearch(
               listing_type: listingType
             };
             
-            // Only add if keywords match or if no keywords provided
-            if (keywords.length === 0 || keywordsMatched.length > 0) {
-              results.push(lead);
-            }
+            results.push(lead);
           }
         }
       } catch (error) {
@@ -839,100 +929,36 @@ async function tryAlternativePropertySearch(
       }
     }
     
-    // If we couldn't extract from JSON, try using Cheerio to parse HTML
+    // If JSON parsing failed, try using Cheerio
     if (results.length === 0) {
       try {
         const $ = cheerio.load(html);
         
-        // Redfin property cards typically have a class like "HomeCardContainer"
-        const propertyCards = $('.HomeCardContainer, .HomeCard, [data-rf-test-id="home-card"]');
-        debugLog(`Found ${propertyCards.length} property cards in HTML`);
+        // Try different property card selectors
+        const selectors = [
+          '.HomeCardContainer', 
+          '.HomeCard', 
+          '[data-rf-test-id="home-card"]',
+          '.SearchResultItem',
+          '.HomeViews',
+          '.PropertyCard',
+          '.PropertyCardContainer',
+          'a[href^="/"][data-rf-test-id]'
+        ];
         
-        if (propertyCards.length === 0) {
-          // Try alternative selectors if the main ones don't work
-          const alternativeCards = $('a[href^="/"][data-rf-test-id]').filter(function(this: cheerio.Element) {
-            const href = $(this).attr('href');
-            return href ? /\/[A-Za-z]{2}\/[^\/]+\/home\/\d+/.test(href) : false;
-          });
-          
-          debugLog(`Found ${alternativeCards.length} alternative property cards`);
-          
-          alternativeCards.each((i, el) => {
-            try {
-              // Extract limited data from these simpler elements
-              const $card = $(el);
-              const url = $card.attr('href');
-              
-              // Only process if we found a URL
-              if (!url) return;
-              
-              // Try to extract address and price
-              const addressText = $card.find('[data-rf-test-id="abp-streetLine"], [data-rf-test-id="address"]').text().trim();
-              const cityStateText = $card.find('[data-rf-test-id="abp-cityStateZip"]').text().trim();
-              const priceText = $card.find('.homecardV2Price, [data-rf-test-id="abp-price"]').text().trim();
-              
-              if (!addressText || !priceText) return;
-              
-              // Parse out the city and state
-              let cityValue = city;
-              let stateValue = state;
-              if (cityStateText) {
-                const parts = cityStateText.split(',');
-                if (parts.length >= 2) {
-                  cityValue = parts[0].trim();
-                  const stateZip = parts[1].trim().split(' ');
-                  stateValue = stateZip[0].trim();
-                }
-              }
-              
-              const fullAddress = `${addressText}, ${cityValue}, ${stateValue}`;
-              
-              // Parse price - handle formatting
-              let price = 0;
-              if (priceText) {
-                const priceString = priceText.replace(/[^\d.]/g, '');
-                price = parseFloat(priceString);
-              }
-              
-              // Skip if required data is missing
-              if (!price || isNaN(price)) {
-                return;
-              }
-              
-              // Check keywords in address (we don't have description)
-              const keywordsMatched = keywords.filter(keyword => {
-                const keywordLower = keyword.toLowerCase();
-                return fullAddress.toLowerCase().includes(keywordLower);
-              });
-              
-              // Create lead object
-              const lead: Lead = {
-                id: uuidv4(),
-                address: fullAddress,
-                city: cityValue,
-                state: stateValue,
-                zipcode: '',
-                price,
-                days_on_market: 0, // We don't have this info
-                description: '', // We don't have this info
-                source: 'redfin',
-                keywords_matched: keywordsMatched,
-                listing_url: `https://www.redfin.com${url}`,
-                created_at: new Date().toISOString(),
-                property_type: undefined, // We don't have this info
-                listing_type: listingType
-              };
-              
-              // Only add if keywords match or if no keywords provided
-              if (keywords.length === 0 || keywordsMatched.length > 0) {
-                results.push(lead);
-              }
-            } catch (cardError) {
-              // Just skip this card
-              debugLog(`Error processing card: ${cardError instanceof Error ? cardError.message : String(cardError)}`);
-            }
-          });
-          
+        let propertyCards;
+        
+        // Try each selector until we find property cards
+        for (const selector of selectors) {
+          propertyCards = $(selector);
+          if (propertyCards.length > 0) {
+            debugLog(`Found ${propertyCards.length} property cards using selector: ${selector}`);
+            break;
+          }
+        }
+        
+        if (!propertyCards || propertyCards.length === 0) {
+          debugLog('No property cards found in HTML');
           return results;
         }
         
@@ -941,36 +967,38 @@ async function tryAlternativePropertySearch(
           try {
             const $card = $(el);
             
-            // Extract address components
-            const street = $card.find('[data-rf-test-id="abp-streetLine"], .streetAddress').text().trim();
-            const cityStateZip = $card.find('[data-rf-test-id="abp-cityStateZip"], .cityStateZip').text().trim();
+            // Extract address components (try different selectors)
+            const street = $card.find('[data-rf-test-id="abp-streetLine"], .streetAddress, .cardStreetAddress').text().trim();
+            const cityStateZip = $card.find('[data-rf-test-id="abp-cityStateZip"], .cityStateZip, .cardAddressDetail').text().trim();
             
-            // Extract price
-            const priceText = $card.find('[data-rf-test-id="abp-price"], .homecardV2Price').text().trim();
+            // Extract price (try different selectors)
+            const priceText = $card.find('[data-rf-test-id="abp-price"], .homecardV2Price, .price, .cardPrice').text().trim();
             const price = parseFloat(priceText.replace(/[^\d.]/g, ''));
             
-            if (!street || !cityStateZip || !price || isNaN(price)) {
+            if (!street || !price || isNaN(price)) {
               return; // Skip if essential data is missing
             }
             
-            // Parse city and state from cityStateZip
+            // Parse city, state, zip from cityStateZip
             let cityValue = city;
             let stateValue = state;
             let zip = '';
             
-            const cityStateParts = cityStateZip.split(',');
-            if (cityStateParts.length >= 2) {
-              cityValue = cityStateParts[0].trim();
-              const stateZipParts = cityStateParts[1].trim().split(' ');
-              if (stateZipParts.length >= 1) {
-                stateValue = stateZipParts[0].trim();
-              }
-              if (stateZipParts.length >= 2) {
-                zip = stateZipParts[1].trim();
+            if (cityStateZip) {
+              const cityStateParts = cityStateZip.split(',');
+              if (cityStateParts.length >= 2) {
+                cityValue = cityStateParts[0].trim();
+                const stateZipParts = cityStateParts[1].trim().split(' ');
+                if (stateZipParts.length >= 1) {
+                  stateValue = stateZipParts[0].trim();
+                }
+                if (stateZipParts.length >= 2) {
+                  zip = stateZipParts[1].trim();
+                }
               }
             }
             
-            // Construct full address
+            // Build full address
             let fullAddress = street;
             if (zip) {
               fullAddress += `, ${cityValue}, ${stateValue} ${zip}`;
@@ -978,31 +1006,31 @@ async function tryAlternativePropertySearch(
               fullAddress += `, ${cityValue}, ${stateValue}`;
             }
             
-            // Extract property details
-            const bedsText = $card.find('[data-rf-test-id="abp-beds"], .stats .HomeStat .value[data-rf-test-name="beds"]').text().trim();
-            const bathsText = $card.find('[data-rf-test-id="abp-baths"], .stats .HomeStat .value[data-rf-test-name="baths"]').text().trim();
-            const sqftText = $card.find('[data-rf-test-id="abp-sqFt"], .stats .HomeStat .value[data-rf-test-name="sqFt"]').text().trim();
-            
-            // Extract days on market if available
-            const domText = $card.find('[data-rf-test-id="abp-dom"], .HomeStatusText').text().trim();
-            let daysOnMarket = 0;
-            const domMatch = domText.match(/(\d+)\s+day/i);
-            if (domMatch && domMatch[1]) {
-              daysOnMarket = parseInt(domMatch[1], 10);
-            }
-            
             // Extract listing URL
             let listingUrl = '';
-            const linkElement = $card.find('a[href^="/"]').first();
+            const linkElement = $card.is('a') ? $card : $card.find('a[href^="/"]').first();
             if (linkElement.length) {
               const href = linkElement.attr('href');
               if (href) {
-                listingUrl = `https://www.redfin.com${href}`;
+                listingUrl = href.startsWith('http') ? href : `https://www.redfin.com${href}`;
               }
             }
             
             if (!listingUrl) {
               listingUrl = `https://www.redfin.com/search/redirect?search=${encodeURIComponent(fullAddress)}`;
+            }
+            
+            // Extract property details
+            const bedsText = $card.find('[data-rf-test-id="abp-beds"], .stats .HomeStat .value[data-rf-test-name="beds"], .beds').text().trim();
+            const bathsText = $card.find('[data-rf-test-id="abp-baths"], .stats .HomeStat .value[data-rf-test-name="baths"], .baths').text().trim();
+            const sqftText = $card.find('[data-rf-test-id="abp-sqFt"], .stats .HomeStat .value[data-rf-test-name="sqFt"], .sqFt').text().trim();
+            
+            // Extract days on market
+            const domText = $card.find('[data-rf-test-id="abp-dom"], .HomeStatusText, .statusText').text().trim();
+            let daysOnMarket = 0;
+            const domMatch = domText.match(/(\d+)\s+day/i);
+            if (domMatch && domMatch[1]) {
+              daysOnMarket = parseInt(domMatch[1], 10);
             }
             
             // Create description from available data
@@ -1019,6 +1047,11 @@ async function tryAlternativePropertySearch(
               const inDescription = description.toLowerCase().includes(keywordLower);
               return inAddress || inDescription;
             });
+            
+            // Only add if keywords match or if no keywords provided
+            if (keywords.length > 0 && keywordsMatched.length === 0) {
+              return;
+            }
             
             // Create lead object
             const lead: Lead = {
@@ -1038,10 +1071,7 @@ async function tryAlternativePropertySearch(
               listing_type: listingType
             };
             
-            // Only add if keywords match or if no keywords provided
-            if (keywords.length === 0 || keywordsMatched.length > 0) {
-              results.push(lead);
-            }
+            results.push(lead);
           } catch (cardError) {
             // Just skip this card
             debugLog(`Error processing card: ${cardError instanceof Error ? cardError.message : String(cardError)}`);
@@ -1052,6 +1082,7 @@ async function tryAlternativePropertySearch(
       }
     }
     
+    debugLog(`Alternative property search found ${results.length} properties`);
     return results;
   } catch (error) {
     debugLog(`Error in alternative property search: ${error instanceof Error ? error.message : String(error)}`);
@@ -1081,23 +1112,22 @@ export async function getProperties(
         break; // No need to retry with invalid location
       }
       
-      // Try the GIS CSV API approach first
+      // Try the alternative search approach first as it's more reliable now
+      debugLog('Trying alternative search approach first as it might be more reliable');
+      leads = await tryAlternativePropertySearch(city, state, keywords, listingType);
+      
+      if (leads.length > 0) {
+        debugLog(`Successfully found ${leads.length} properties using alternative approach`);
+        return leads;
+      }
+      
+      // If alternative approach didn't work, try the CSV API approach
+      debugLog('Alternative approach returned no results, trying CSV API approach');
       leads = await getPropertiesFromCSV(city, state, keywords, listingType);
       
       // If successful, return the leads
       if (leads.length > 0) {
         debugLog(`Successfully found ${leads.length} properties using CSV API`);
-        return leads;
-      }
-      
-      // Log that we're trying alternative approach
-      debugLog('CSV API approach returned no results, trying alternative search approach');
-      
-      // Try alternative approach
-      leads = await tryAlternativePropertySearch(city, state, keywords, listingType);
-      
-      if (leads.length > 0) {
-        debugLog(`Successfully found ${leads.length} properties using alternative approach`);
         return leads;
       }
       
