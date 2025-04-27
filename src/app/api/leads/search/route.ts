@@ -4,6 +4,7 @@ import { scrapeZillowFSBO, Lead } from '@/lib/scrapers/zillow';
 import { scrapeCraigslist } from '@/lib/scrapers/craigslist';
 import { scrapeFacebook } from '@/lib/scrapers/facebook';
 import { scrapeRealtor } from '@/lib/scrapers/realtor';
+import { scrapeRedfin } from '@/lib/scrapers/redfin';
 
 // Helper function for logging
 function apiLog(message: string, data?: any) {
@@ -145,6 +146,25 @@ export async function POST(request: NextRequest) {
         }
       };
       searchPromises.push(zillowPromise());
+    }
+
+    if (sources.includes('redfin')) {
+      apiLog(`Starting Redfin search for ${city}, ${state}`);
+      const redfinPromise = async () => {
+        try {
+          apiLog(`Calling Redfin scraper with listing type: ${listing_type}`);
+          const results = await scrapeRedfin(city, state, keywordArray, listing_type as 'fsbo' | 'agent' | 'both');
+          apiLog(`Redfin search completed, found ${results.length} results`);
+          return results.map((result: any) => ({
+            ...result,
+            user_id: userId
+          }));
+        } catch (error) {
+          apiLog(`Error scraping Redfin: ${error instanceof Error ? error.stack || error.message : String(error)}`);
+          return [];
+        }
+      };
+      searchPromises.push(redfinPromise());
     }
 
     if (sources.includes('craigslist')) {
