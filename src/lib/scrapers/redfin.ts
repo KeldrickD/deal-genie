@@ -2,7 +2,23 @@ import fetch from 'node-fetch';
 import * as cheerio from 'cheerio';
 import { v4 as uuidv4 } from 'uuid';
 import { getStateAbbreviation } from '@/lib/utils';
-import type { Lead } from './zillow';
+
+// Define and export the Lead interface
+export type Lead = {
+  id: string;
+  address: string;
+  city: string;
+  state: string;
+  price: number;
+  days_on_market: number;
+  description: string;
+  source: string;
+  keywords_matched: string[];
+  listing_url: string;
+  created_at: string;
+  property_type?: string;
+  listing_type: 'fsbo' | 'agent' | 'both';
+};
 
 // Debug logging helper
 function debugLog(message: string, data?: any) {

@@ -40,7 +40,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const availableSources = ['zillow', 'craigslist', 'facebook', 'realtor'];
+  const availableSources = ['redfin', 'craigslist', 'facebook', 'realtor'];
 
   async function handleSearch(params: {
     city: string;

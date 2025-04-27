@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { scrapeZillowFSBO, Lead } from '@/lib/scrapers/zillow';
+import { scrapeRedfin, Lead } from '@/lib/scrapers/redfin';
 import { scrapeCraigslist } from '@/lib/scrapers/craigslist';
 import { scrapeFacebook } from '@/lib/scrapers/facebook';
 import { scrapeRealtor } from '@/lib/scrapers/realtor';
-import { scrapeRedfin } from '@/lib/scrapers/redfin';
 
 // Helper function for logging
 function apiLog(message: string, data?: any) {
@@ -128,25 +127,6 @@ export async function POST(request: NextRequest) {
 
     // 4. Run searches with improved error handling
     const searchPromises = [];
-
-    if (sources.includes('zillow')) {
-      apiLog(`Starting Zillow search for ${city}, ${state}`);
-      const zillowPromise = async () => {
-        try {
-          apiLog(`Calling Zillow scraper with listing type: ${listing_type}`);
-          const results = await scrapeZillowFSBO(city, state, keywordArray, listing_type as 'fsbo' | 'agent' | 'both');
-          apiLog(`Zillow search completed, found ${results.length} results`);
-          return results.map((result: any) => ({
-            ...result,
-            user_id: userId
-          }));
-        } catch (error) {
-          apiLog(`Error scraping Zillow: ${error instanceof Error ? error.stack || error.message : String(error)}`);
-          return [];
-        }
-      };
-      searchPromises.push(zillowPromise());
-    }
 
     if (sources.includes('redfin')) {
       apiLog(`Starting Redfin search for ${city}, ${state}`);

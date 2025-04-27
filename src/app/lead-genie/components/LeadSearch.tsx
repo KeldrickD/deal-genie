@@ -94,7 +94,7 @@ export default function LeadSearch() {
   const [daysOnMarketOption, setDaysOnMarketOption] = useState("less"); // "less" or "more"
   const [listingType, setListingType] = useState<'both' | 'fsbo' | 'agent'>('both');
   const [sources, setSources] = useState({
-    zillow: true,
+    redfin: true,
     craigslist: true,
     facebook: true,
     realtor: true

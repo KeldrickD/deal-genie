@@ -46,7 +46,7 @@ export default function LeadGeniePage() {
             </div>
             <h3 className="text-lg font-medium text-center mb-2">Multiple Sources</h3>
             <p className="text-gray-600 text-center">
-              Search across Zillow, Craigslist, Facebook Marketplace, and Realtor.com all in one place.
+              Search across Redfin, Craigslist, Facebook Marketplace, and Realtor.com all in one place.
             </p>
           </div>
           

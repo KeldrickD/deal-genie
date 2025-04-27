@@ -29,7 +29,7 @@ const SearchForm = ({ onSearch, isLoading, leadSources }: SearchFormProps) => {
   const [priceMin, setPriceMin] = useState<number>(0);
   const [priceMax, setPriceMax] = useState<number>(1000000);
   const [days_on_market, setDaysOnMarket] = useState<number>(7);
-  const [selectedSources, setSelectedSources] = useState<string[]>(['zillow']);
+  const [selectedSources, setSelectedSources] = useState<string[]>(['redfin']);
   const [keywords, setKeywords] = useState<string>('');
   const [daysOnMarketOption, setDaysOnMarketOption] = useState<string>('any');
   const [listingType, setListingType] = useState<'fsbo' | 'agent' | 'both'>('both');
