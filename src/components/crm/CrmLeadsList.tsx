@@ -21,7 +21,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, Search, DollarSign, Calendar, Phone, Pencil, Trash2, ExternalLink } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 import { 
   Dialog,
   DialogContent,
@@ -55,7 +55,6 @@ export function CrmLeadsList() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const { toast } = useToast();
   
   // Detail dialog
   const [selectedLead, setSelectedLead] = useState<CrmLead | null>(null);
@@ -84,11 +83,7 @@ export function CrmLeadsList() {
       setLeads(data.leads || []);
     } catch (error) {
       console.error('Error fetching leads:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load leads. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Failed to load leads. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -148,19 +143,12 @@ export function CrmLeadsList() {
           : lead
       ));
       
-      toast({
-        title: "Lead updated",
-        description: "Lead has been updated successfully",
-      });
+      toast.success("Lead has been updated successfully");
       
       setIsDetailOpen(false);
     } catch (error) {
       console.error('Error updating lead:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update lead. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Failed to update lead. Please try again.");
     } finally {
       setIsSaving(false);
     }
@@ -190,22 +178,14 @@ export function CrmLeadsList() {
       // Remove the lead from the local state
       setLeads(leads.filter(lead => lead.id !== leadToDelete));
       
-      toast({
-        title: "Lead deleted",
-        description: "Lead has been removed from your CRM",
-      });
+      toast.success("Lead has been removed from your CRM");
       
       setIsDeleteOpen(false);
     } catch (error) {
       console.error('Error deleting lead:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete lead. Please try again.",
-        variant: "destructive",
-      });
+      toast.error("Failed to delete lead. Please try again.");
     } finally {
       setIsDeleting(false);
-      setLeadToDelete(null);
     }
   };
 

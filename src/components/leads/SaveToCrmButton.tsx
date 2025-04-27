@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, Loader2, Database } from 'lucide-react';
-import { useToast } from '@/components/ui/use-toast';
+import { toast } from 'sonner';
 
 interface SaveToCrmButtonProps {
   lead: {
@@ -32,7 +32,6 @@ export function SaveToCrmButton({
 }: SaveToCrmButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const { toast } = useToast();
 
   const saveToCrm = async () => {
     if (isLoading || isSaved) return;
@@ -53,10 +52,8 @@ export function SaveToCrmButton({
       if (!response.ok) {
         if (response.status === 409) {
           // Already exists
-          toast({
-            title: "Already in CRM",
-            description: "This lead is already saved in your CRM",
-            variant: "default",
+          toast("Already in CRM", {
+            description: "This lead is already saved in your CRM"
           });
           setIsSaved(true);
           if (onSuccess && data.leadId) {
@@ -66,10 +63,8 @@ export function SaveToCrmButton({
           throw new Error(data.error || 'Failed to save lead');
         }
       } else {
-        toast({
-          title: "Lead saved",
-          description: "Lead has been added to your CRM",
-          variant: "default",
+        toast.success("Lead saved", {
+          description: "Lead has been added to your CRM"
         });
         setIsSaved(true);
         if (onSuccess && data.leadId) {
@@ -78,10 +73,8 @@ export function SaveToCrmButton({
       }
     } catch (error) {
       console.error('Error saving lead to CRM:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save lead to CRM",
-        variant: "destructive",
+      toast.error("Error", {
+        description: "Failed to save lead to CRM"
       });
     } finally {
       setIsLoading(false);
