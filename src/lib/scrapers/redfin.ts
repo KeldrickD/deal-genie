@@ -51,232 +51,113 @@ export async function scrapeRedfin(
       debugLog(`ERROR: Invalid state name: ${state}`);
       return getMockRedfinData(city, state, keywords, listingType);
     }
-
-    // Try direct search first - this is more accurate for finding the correct location
-    const directResult = await tryDirectSearch(city, stateAbbr);
-    let searchUrl = '';
-    let regionId = '';
     
-    if (directResult) {
-      searchUrl = directResult.url;
-      regionId = directResult.id;
-      debugLog(`Using direct search result: ${searchUrl}`);
-    } else {
-      // Fallback to the constructed URL
-      const formattedCity = city.toLowerCase().replace(/\s+/g, '-');
-      const formattedState = stateAbbr.toLowerCase();
-      searchUrl = `https://www.redfin.com/${formattedState}/${formattedCity}`;
-      debugLog(`Using constructed search URL: ${searchUrl}`);
-    }
+    // Use the most direct and reliable approach - search API with location parameter
+    // This endpoint is what powers Redfin's search suggestions and is more reliable
+    const searchQuery = `${city}, ${stateAbbr}`;
+    const encodedQuery = encodeURIComponent(searchQuery);
+    const locationUrl = `https://www.redfin.com/stingray/do/location-autocomplete?location=${encodedQuery}&start=0&count=10&v=2&market=global&al=1&iss=false&ooa=true&mrs=false`;
     
-    // Add listing type filter to URL if needed
-    if (listingType === 'fsbo' && !searchUrl.includes('/fsbo')) {
-      searchUrl += '/fsbo';
-      debugLog('Added FSBO filter to URL');
-    }
+    debugLog(`Fetching location data from: ${locationUrl}`);
     
-    // Fetch the search page
-    const searchResponse = await fetch(searchUrl, {
+    // First get the location ID
+    const locationResponse = await fetch(locationUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept': '*/*',
         'Accept-Language': 'en-US,en;q=0.9',
-        'Cache-Control': 'max-age=0',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
         'Referer': 'https://www.redfin.com/'
       }
     });
-
-    // Check response
-    if (!searchResponse.ok) {
-      debugLog(`Search request failed: ${searchResponse.status} ${searchResponse.statusText}`);
+    
+    if (!locationResponse.ok) {
+      debugLog(`Location API failed: ${locationResponse.status} ${locationResponse.statusText}`);
       return getMockRedfinData(city, state, keywords, listingType);
     }
-
-    const html = await searchResponse.text();
-    const $ = cheerio.load(html);
     
-    debugLog('Searching for property data in page...');
+    // Parse the location data
+    let locationId = '';
+    let locationText = await locationResponse.text();
+    locationText = locationText.replace(/^\s*\/\/\s*/, ''); // Remove leading comments
     
-    // Look for the Redfin search params and API data
-    let apiData: any = null;
-    let properties: any[] = [];
-    
-    // Try to extract data from script tags which might contain property data
-    $('script').each((i, elem) => {
-      const scriptContent = $(elem).html() || '';
+    try {
+      const locationData = JSON.parse(locationText);
+      debugLog('Location data:', locationData);
       
-      // Look for Redfin's data in script tags - check multiple patterns
-      if (scriptContent.includes('__PRELOADED_STATE__')) {
-        debugLog('Found __PRELOADED_STATE__ script tag');
-        try {
-          // Extract the JSON data using regex - Redfin often stores data in this format
-          const match = scriptContent.match(/\b__PRELOADED_STATE__\s*=\s*({.*});/);
-          if (match && match[1]) {
-            apiData = JSON.parse(match[1]);
-            debugLog('Successfully parsed Redfin __PRELOADED_STATE__ data');
-          }
-        } catch (error) {
-          debugLog(`Error parsing script tag data: ${error instanceof Error ? error.message : String(error)}`);
-        }
-      } 
-      else if (scriptContent.includes('window.REACT_DATA')) {
-        debugLog('Found window.REACT_DATA script tag');
-        try {
-          // Extract the JSON data using regex - improved pattern
-          const match = scriptContent.match(/window\.REACT_DATA\s*=\s*({.+});/);
-          if (match && match[1]) {
-            try {
-              apiData = JSON.parse(match[1]);
-              debugLog('Successfully parsed REACT_DATA data');
-            } catch (parseError) {
-              debugLog(`JSON parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      // Try to find the location ID from various paths
+      if (locationData.payload) {
+        if (locationData.payload.exactMatch) {
+          locationId = locationData.payload.exactMatch.id;
+          debugLog(`Found exact match location ID: ${locationId}`);
+        } else if (locationData.payload.sections && locationData.payload.sections.length > 0) {
+          // Look through sections to find a city match
+          for (const section of locationData.payload.sections) {
+            if (section.rows && section.rows.length > 0) {
+              for (const row of section.rows) {
+                if (row.type === 'city') {
+                  locationId = row.id;
+                  debugLog(`Found city match location ID: ${locationId}`);
+                  break;
+                }
+              }
+              if (locationId) break;
             }
           }
-        } catch (error) {
-          debugLog(`Error with REACT_DATA script: ${error instanceof Error ? error.message : String(error)}`);
+          
+          // If no city match, just take the first row
+          if (!locationId && locationData.payload.sections[0].rows && locationData.payload.sections[0].rows.length > 0) {
+            locationId = locationData.payload.sections[0].rows[0].id;
+            debugLog(`Using first match location ID: ${locationId}`);
+          }
         }
       }
-      // Also check for REST API data
-      else if (scriptContent.includes('_GTM_GLOBAL_DATA')) {
-        debugLog('Found _GTM_GLOBAL_DATA script tag');
-        try {
-          const match = scriptContent.match(/var\s+_GTM_GLOBAL_DATA\s*=\s*({.+});/);
-          if (match && match[1]) {
-            const gtmData = JSON.parse(match[1]);
-            if (gtmData && gtmData.searchData) {
-              apiData = gtmData;
-              debugLog('Successfully parsed GTM data');
-            }
-          }
-        } catch (error) {
-          debugLog(`Error with GTM script: ${error instanceof Error ? error.message : String(error)}`);
-        }
+    } catch (error) {
+      debugLog(`Error parsing location data: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    
+    if (!locationId) {
+      debugLog('Failed to find location ID');
+      return getMockRedfinData(city, state, keywords, listingType);
+    }
+    
+    // Now use the location ID to search for properties
+    const searchUrl = `https://www.redfin.com/stingray/api/gis-search?start=0&count=50&market=global&region_id=${locationId}&region_type=6&sold_within_days=365&v=8&include_nearby_homes=true`;
+    
+    debugLog(`Searching properties with URL: ${searchUrl}`);
+    
+    const searchResponse = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
+        'Accept': '*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.redfin.com/'
       }
     });
     
-    // If we found data, extract the properties
-    if (apiData) {
-      debugLog('Found API data, attempting to extract properties');
-      
-      // Try different property paths based on Redfin's data structure
-      if (apiData.homes && Array.isArray(apiData.homes.homes)) {
-        properties = apiData.homes.homes;
-        debugLog(`Found ${properties.length} properties in homes.homes path`);
-      } 
-      else if (apiData.payload && apiData.payload.homes) {
-        properties = apiData.payload.homes;
-        debugLog(`Found ${properties.length} properties in payload.homes path`);
-      }
-      else if (apiData.searchResults && apiData.searchResults.homes) {
-        properties = apiData.searchResults.homes;
-        debugLog(`Found ${properties.length} properties in searchResults.homes path`);
-      }
-      else if (apiData.searchData && apiData.searchData.homes) {
-        properties = apiData.searchData.homes;
-        debugLog(`Found ${properties.length} properties in searchData.homes path`);
-      }
+    if (!searchResponse.ok) {
+      debugLog(`Search API failed: ${searchResponse.status} ${searchResponse.statusText}`);
+      return getMockRedfinData(city, state, keywords, listingType);
     }
     
-    // If we didn't extract properties from the initial page data, try the API
-    if (!properties || properties.length === 0) {
-      debugLog('No properties found in page data, trying API...');
+    // Parse the search results
+    let properties: any[] = [];
+    let searchText = await searchResponse.text();
+    searchText = searchText.replace(/^\s*\/\/\s*/, ''); // Remove leading comments
+    
+    try {
+      const searchData = JSON.parse(searchText);
+      debugLog('Search data structure:', Object.keys(searchData));
       
-      // Try multiple ways to find the region ID
-      if (!regionId) {
-        const metaRegionId = $('meta[name="region-id"]').attr('content');
-        if (metaRegionId) {
-          regionId = metaRegionId;
-          debugLog(`Found region ID from meta tag: ${regionId}`);
-        }
+      if (searchData.payload && searchData.payload.homes) {
+        properties = searchData.payload.homes;
+        debugLog(`Found ${properties.length} properties from search API`);
       }
-      
-      // Also try the script tag way
-      if (!regionId) {
-        regionId = $('script[data-rf-test-id="RDC_REACT_APP_STATE"]').attr('data-region-id') || '';
-        if (regionId) {
-          debugLog(`Found region ID from script tag: ${regionId}`);
-        }
-      }
-      
-      if (regionId) {
-        // Try a different API endpoint - more reliable for property listings
-        let apiUrl = `https://www.redfin.com/stingray/api/gis-search?al=1&include_nearby_homes=true&market=global&num_homes=350&ord=redfin-recommended-asc&page_number=1&region_id=${regionId}&region_type=6&sf=1,2,3,5,6,7&status=9&uipt=1,2,3,4,5,6,7,8&v=8`;
-        
-        // Add listing type filter if needed
-        if (listingType === 'fsbo') {
-          apiUrl += '&is_fsbo=true';
-        } else if (listingType === 'agent') {
-          apiUrl += '&is_fsbo=false';
-        }
-        
-        debugLog(`Fetching from Redfin API: ${apiUrl}`);
-        
-        const apiResponse = await fetch(apiUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Referer': searchUrl
-          }
-        });
-        
-        if (apiResponse.ok) {
-          const text = await apiResponse.text();
-          // Redfin API returns "//\n" prefixed JSON
-          const jsonText = text.replace(/^\/\/\n/, '');
-          
-          try {
-            const data = JSON.parse(jsonText);
-            if (data.payload && data.payload.homes) {
-              properties = data.payload.homes;
-              debugLog(`Found ${properties.length} properties from Redfin API`);
-            }
-          } catch (error) {
-            debugLog(`Error parsing API response: ${error instanceof Error ? error.message : String(error)}`);
-          }
-        } else {
-          debugLog(`API request failed: ${apiResponse.status} ${apiResponse.statusText}`);
-        }
-        
-        // If still no properties, try the search API directly
-        if (!properties || properties.length === 0) {
-          debugLog('No properties from GIS API, trying search API...');
-          
-          const searchApiUrl = `https://www.redfin.com/stingray/api/home-search/search?start=0&count=50&market=${city}&region_id=${regionId}&region_type=6&sf=1,2,3,5,6,7&v=8`;
-          
-          const searchApiResponse = await fetch(searchApiUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.9',
-              'Referer': searchUrl
-            }
-          });
-          
-          if (searchApiResponse.ok) {
-            const text = await searchApiResponse.text();
-            const jsonText = text.replace(/^\/\/\n/, '');
-            
-            try {
-              const data = JSON.parse(jsonText);
-              if (data.payload && data.payload.homes) {
-                properties = data.payload.homes;
-                debugLog(`Found ${properties.length} properties from Search API`);
-              }
-            } catch (error) {
-              debugLog(`Error parsing Search API response: ${error instanceof Error ? error.message : String(error)}`);
-            }
-          }
-        }
-      } else {
-        debugLog('Could not find region ID for API request');
-      }
+    } catch (error) {
+      debugLog(`Error parsing search data: ${error instanceof Error ? error.message : String(error)}`);
     }
     
     if (properties.length === 0) {
-      debugLog('No properties found in Redfin data, returning mock data');
+      debugLog('No properties found in search results');
       return getMockRedfinData(city, state, keywords, listingType);
     }
     
@@ -285,32 +166,35 @@ export async function scrapeRedfin(
     
     for (const property of properties) {
       try {
-        debugLog(`Processing property: ${JSON.stringify(property).substring(0, 200)}...`);
+        debugLog(`Processing property:`, property);
         
         let isFsbo = false;
         let isAgent = true;
         
-        // Check if it's FSBO - Redfin doesn't always clearly label FSBO listings
-        // We'll check for keywords in multiple fields
-        const checkFields = [
+        // Check if it's FSBO based on various property fields
+        if (property.isFSBO || (property.listingType && property.listingType.toLowerCase().includes('fsbo'))) {
+          isFsbo = true;
+          isAgent = false;
+          debugLog('FSBO property found based on isFSBO flag');
+        }
+        
+        // Check description fields for FSBO keywords
+        const fsboKeywords = ['for sale by owner', 'fsbo', 'owner sale', 'no agent', 'private seller', 'direct from owner'];
+        const descriptionFields = [
           property.marketingRemarks,
           property.remarksAccessor,
           property.description,
-          property.propertyDescription,
-          property.name,
-          property.streetLine
+          property.propertyDescription
         ];
         
-        const fsboKeywords = ['for sale by owner', 'fsbo', 'owner sale', 'no agent', 'private seller', 'direct from owner'];
-        
-        for (const field of checkFields) {
+        for (const field of descriptionFields) {
           if (field && typeof field === 'string') {
             const fieldLower = field.toLowerCase();
             for (const keyword of fsboKeywords) {
               if (fieldLower.includes(keyword)) {
                 isFsbo = true;
                 isAgent = false;
-                debugLog(`Detected FSBO listing based on keyword "${keyword}" in field`);
+                debugLog(`FSBO property found based on keyword "${keyword}"`);
                 break;
               }
             }
@@ -318,79 +202,119 @@ export async function scrapeRedfin(
           }
         }
         
-        // Check if seller is not a broker/agent
-        if (property.brokerName === undefined || property.brokerName === null || property.brokerName === '') {
-          // If no broker name is present, it might be FSBO
-          if (!isFsbo) {
-            debugLog('No broker name found, might be FSBO');
-          }
-        }
-        
-        // Check listingType field if available
-        if (property.listingType) {
-          const listingTypeLower = String(property.listingType).toLowerCase();
-          if (listingTypeLower.includes('fsbo') || listingTypeLower.includes('by owner')) {
-            isFsbo = true;
-            isAgent = false;
-            debugLog(`Detected FSBO listing based on listingType: ${property.listingType}`);
-          }
-        }
-        
         // Skip if we're filtering by listing type and this doesn't match
         if ((listingType === 'fsbo' && !isFsbo) || (listingType === 'agent' && !isAgent)) {
-          debugLog(`Skipping property based on listing type filter: requested=${listingType}, actual=${isFsbo ? 'fsbo' : 'agent'}`);
+          debugLog(`Skipping property based on listing type filter`);
           continue;
         }
         
-        // Extract address components
-        const address = property.streetLine || '';
-        const propertyCity = property.city || city;
-        const propertyState = property.state || stateAbbr;
-        const zipcode = property.zip || '';
+        // Extract property details
+        let address = '';
+        let city = '';
+        let state = '';
+        let zipcode = '';
         
-        // Format the full address
-        const fullAddress = `${address}, ${propertyCity}, ${propertyState} ${zipcode}`;
+        // Try to get the formatted address
+        if (property.addressLine1) {
+          address = property.addressLine1;
+        } else if (property.streetLine) {
+          address = property.streetLine;
+        } else if (property.streetAddress) {
+          address = property.streetAddress;
+        }
         
-        // Extract and clean price
+        // Get city, state, zip
+        city = property.city || property.addressCity || '';
+        state = property.state || property.addressState || stateAbbr;
+        zipcode = property.zip || property.zipcode || property.addressZip || '';
+        
+        // Create full address
+        const fullAddress = `${address}, ${city}, ${state} ${zipcode}`.trim();
+        if (!fullAddress || fullAddress === ', ,') {
+          debugLog('Skipping property with empty address');
+          continue;
+        }
+        
+        // Extract price
         let price = 0;
-        if (property.price) {
+        if (typeof property.price === 'number') {
+          price = property.price;
+        } else if (property.price && typeof property.price === 'string') {
           // Convert "$450,000" to 450000
-          price = parseFloat(String(property.price).replace(/[^0-9.]/g, ''));
+          price = parseFloat(property.price.replace(/[^0-9.]/g, ''));
+        } else if (property.listPrice) {
+          price = typeof property.listPrice === 'number' ? property.listPrice : 
+                 parseFloat(String(property.listPrice).replace(/[^0-9.]/g, ''));
         }
         
         // Extract days on market
-        const daysOnMarket = property.daysOnRedfin || property.timeOnMarket || 0;
-        
-        // Extract description and combine with remarks if available
-        let description = property.marketingRemarks || '';
-        if (property.propertyDetails) {
-          description += ' ' + property.propertyDetails;
+        let daysOnMarket = 0;
+        if (property.daysOnMarket) {
+          daysOnMarket = typeof property.daysOnMarket === 'number' ? property.daysOnMarket : 
+                          parseInt(String(property.daysOnMarket), 10);
+        } else if (property.daysOnRedfin) {
+          daysOnMarket = typeof property.daysOnRedfin === 'number' ? property.daysOnRedfin : 
+                          parseInt(String(property.daysOnRedfin), 10);
+        } else if (property.timeOnMarket) {
+          daysOnMarket = typeof property.timeOnMarket === 'number' ? property.timeOnMarket : 
+                          parseInt(String(property.timeOnMarket), 10);
         }
         
-        // Check for keyword matches
+        // Extract description
+        let description = '';
+        if (property.marketingRemarks) {
+          description = property.marketingRemarks;
+        } else if (property.description) {
+          description = property.description;
+        } else if (property.propertyDescription) {
+          description = property.propertyDescription;
+        } else {
+          // Create a basic description if none exists
+          const beds = property.beds || property.numBeds || 'Unknown';
+          const baths = property.baths || property.numBaths || 'Unknown';
+          const sqft = property.sqFt || property.squareFeet || 'Unknown';
+          description = `${beds} beds, ${baths} baths, ${sqft} sqft.`;
+          
+          if (property.yearBuilt) {
+            description += ` Built in ${property.yearBuilt}.`;
+          }
+          
+          if (isFsbo) {
+            description += ' For sale by owner.';
+          }
+        }
+        
+        // Generate a listing URL
+        let listingUrl = '';
+        if (property.url) {
+          listingUrl = property.url.startsWith('http') ? property.url : `https://www.redfin.com${property.url}`;
+        } else if (property.detailUrl) {
+          listingUrl = property.detailUrl.startsWith('http') ? property.detailUrl : `https://www.redfin.com${property.detailUrl}`;
+        } else {
+          // Construct a URL from the property ID
+          listingUrl = `https://www.redfin.com/property/${property.id || property.propertyId || ''}`;
+        }
+        
+        // Match keywords
         const keywordsMatched = keywords.filter(keyword => 
           description.toLowerCase().includes(keyword.toLowerCase()) || 
-          address.toLowerCase().includes(keyword.toLowerCase())
+          fullAddress.toLowerCase().includes(keyword.toLowerCase())
         );
         
-        // Create detailUrl
-        const detailUrl = property.url || 
-                         `https://www.redfin.com/${propertyState.toLowerCase()}/${propertyCity.toLowerCase().replace(/\s+/g, '-')}/${address.toLowerCase().replace(/\s+/g, '-')}`;
-        
-        // Create the lead
+        // Create the lead object
         const lead: Lead = {
-          id: `redfin-${uuidv4()}`,
+          id: `redfin-${property.id || property.propertyId || uuidv4()}`,
           address: fullAddress,
-          city: propertyCity,
-          state: propertyState,
-          price: price,
-          days_on_market: typeof daysOnMarket === 'number' ? daysOnMarket : parseInt(String(daysOnMarket), 10) || 0,
-          description: description,
+          city,
+          state,
+          price,
+          days_on_market: daysOnMarket || 0,
+          description,
           source: 'redfin',
           keywords_matched: keywordsMatched,
-          listing_url: detailUrl,
+          listing_url: listingUrl,
           created_at: new Date().toISOString(),
-          property_type: property.propertyType || 'unknown',
+          property_type: property.propertyType || 'Unknown',
           listing_type: isFsbo ? 'fsbo' : 'agent'
         };
         
@@ -399,6 +323,11 @@ export async function scrapeRedfin(
       } catch (error) {
         debugLog(`Error processing property: ${error instanceof Error ? error.message : String(error)}`);
       }
+    }
+    
+    if (leads.length === 0) {
+      debugLog('No valid leads created from properties, using mock data');
+      return getMockRedfinData(city, state, keywords, listingType);
     }
     
     debugLog(`Returning ${leads.length} leads from Redfin`);
