@@ -12,6 +12,7 @@ import { MapPin, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import LeadCard from './LeadCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Lead = {
   id: string;
@@ -32,6 +33,7 @@ export default function LeadSearch() {
   const [city, setCity] = useState('');
   const [priceRange, setPriceRange] = useState([100000, 500000]);
   const [daysOnMarket, setDaysOnMarket] = useState(30);
+  const [daysOnMarketOption, setDaysOnMarketOption] = useState("less"); // "less" or "more"
   const [sources, setSources] = useState({
     zillow: true,
     craigslist: true,
@@ -46,7 +48,15 @@ export default function LeadSearch() {
     'needs-work': true,
     'handyman-special': true,
     'distressed': true,
-    'estate-sale': true
+    'estate-sale': true,
+    'tlc': true,
+    'investor': true,
+    'cash': true,
+    'fixer': true,
+    'needs': true,
+    'motivated': true,
+    'all-offers': true,
+    'handyman': true
   });
 
   // State for search results
@@ -85,6 +95,7 @@ export default function LeadSearch() {
           priceMin: priceRange[0],
           priceMax: priceRange[1],
           days_on_market: daysOnMarket,
+          days_on_market_option: daysOnMarketOption,
           sources: selectedSources,
           keywords: selectedKeywords.join(',')
         }),
@@ -162,12 +173,26 @@ export default function LeadSearch() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label>Days on Market: {daysOnMarket} days or less</Label>
+            <div className="space-y-4">
+              <div className="flex justify-between">
+                <Label>Days on Market: {daysOnMarket} days</Label>
+                <Select 
+                  value={daysOnMarketOption}
+                  onValueChange={setDaysOnMarketOption}
+                >
+                  <SelectTrigger className="w-[110px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="less">or less</SelectItem>
+                    <SelectItem value="more">or more</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Slider
                 defaultValue={[30]}
                 min={1}
-                max={90}
+                max={180}
                 step={1}
                 value={[daysOnMarket]}
                 onValueChange={(value) => setDaysOnMarket(value[0])}
@@ -196,7 +221,7 @@ export default function LeadSearch() {
                 ))}
               </TabsContent>
               
-              <TabsContent value="keywords" className="space-y-2 pt-2">
+              <TabsContent value="keywords" className="space-y-2 pt-2 max-h-60 overflow-y-auto">
                 {Object.entries(keywords).map(([name, checked]) => (
                   <div key={name} className="flex items-center space-x-2">
                     <Checkbox 
