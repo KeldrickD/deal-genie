@@ -2,11 +2,12 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import { AuthProvider } from '@/components/AuthProvider';
-import { Toaster } from 'react-hot-toast';
+import { Toaster } from '@/components/ui/toaster';
 import Navigation from '@/components/Navigation';
 import Script from 'next/script';
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "@/components/theme-provider";
+import FeedbackWidget from '@/components/FeedbackWidget';
 
 // Font configuration
 const inter = Inter({ subsets: ['latin'] });
@@ -60,7 +61,8 @@ export default function RootLayout({
           <AuthProvider>
             <Navigation />
             {children}
-            <Toaster position="bottom-right" />
+            <Toaster />
+            <FeedbackWidget />
           </AuthProvider>
         </ThemeProvider>
       </body>

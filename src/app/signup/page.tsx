@@ -6,20 +6,8 @@ import Link from 'next/link';
 import { useAuthContext } from '@/components/AuthProvider';
 
 export default function SignupPage() {
-  const { isAuthenticated, loading, redirecting, debugAuthState } = useAuthContext();
+  const { isAuthenticated, loading } = useAuthContext();
   
-  // Debug auth state on load
-  useEffect(() => {
-    console.log('Signup page - Initial auth state:', { 
-      isAuthenticated, 
-      loading,
-      redirecting
-    });
-    
-    // Call debug function to log detailed auth state
-    debugAuthState();
-  }, []);
-
   // Show loading state while checking authentication
   if (loading) {
     return (
@@ -33,7 +21,7 @@ export default function SignupPage() {
   }
 
   // Show redirection UI if authenticated
-  if (isAuthenticated || redirecting) {
+  if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center p-6 max-w-md bg-white rounded shadow-lg">
