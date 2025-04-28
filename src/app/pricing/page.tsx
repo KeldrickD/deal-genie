@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import PricingCard from "./pricing-card";
 import type { Metadata } from 'next';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { Link } from "@/components/ui/link";
+import Link from 'next/link';
 
 export const metadata: Metadata = {
   title: 'Deal Genie Pricing – Simple Plans for Every Investor',
