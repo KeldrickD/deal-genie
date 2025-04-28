@@ -12,19 +12,19 @@ export const SITE = {
 // Usage limits for different subscription plans
 export const USAGE_LIMITS = {
   free: {
-    analyses: 5,      // 5 analyses per month
-    offers: 3,        // 3 offers per month
-    imports: 10,      // 10 imports per month
+    analyses: Infinity,  // unlimited
+    offers: Infinity,    // unlimited
+    imports: Infinity,   // unlimited
   },
   trial: {
-    analyses: 50,     // 50 analyses during 14-day trial
-    offers: 20,       // 20 offers during trial
-    imports: 100,     // 100 imports during trial
+    analyses: Infinity,  // unlimited
+    offers: Infinity,    // unlimited
+    imports: Infinity,   // unlimited
   },
   pro: {
-    analyses: Infinity, // unlimited
-    offers: Infinity,   // unlimited
-    imports: Infinity,  // unlimited
+    analyses: Infinity,  // unlimited
+    offers: Infinity,    // unlimited
+    imports: Infinity,   // unlimited
   },
 };
 
