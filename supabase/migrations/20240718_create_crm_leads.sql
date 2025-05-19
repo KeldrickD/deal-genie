@@ -27,6 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_crm_leads_created_at ON public.crm_leads(created_
 ALTER TABLE public.crm_leads ENABLE ROW LEVEL SECURITY;
 
 -- CRM leads can be read/modified by the owner
+DROP POLICY IF EXISTS "Users can CRUD their own CRM leads" ON public.crm_leads;
 CREATE POLICY "Users can CRUD their own CRM leads"
 ON public.crm_leads
 USING (user_id = auth.uid());

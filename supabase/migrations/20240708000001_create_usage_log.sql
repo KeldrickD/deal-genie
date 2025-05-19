@@ -18,15 +18,17 @@ ALTER TABLE public.usage_log ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
 -- Admin can do everything
+DROP POLICY IF EXISTS "Admins can do everything on usage_log" ON public.usage_log;
 CREATE POLICY "Admins can do everything on usage_log"
   ON public.usage_log
   FOR ALL
   TO authenticated
   USING (
-    (SELECT is_admin FROM public.user_profiles WHERE id = auth.uid())
+    (SELECT is_admin FROM public.profiles WHERE id = auth.uid())
   );
 
 -- Users can view their own usage logs
+DROP POLICY IF EXISTS "Users can view their own usage logs" ON public.usage_log;
 CREATE POLICY "Users can view their own usage logs"
   ON public.usage_log
   FOR SELECT

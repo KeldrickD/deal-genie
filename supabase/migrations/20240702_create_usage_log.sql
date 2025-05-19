@@ -15,11 +15,13 @@ CREATE INDEX IF NOT EXISTS idx_usage_log_created_at ON public.usage_log(created_
 ALTER TABLE public.usage_log ENABLE ROW LEVEL SECURITY;
 
 -- Create policy for users to read their own usage logs
+DROP POLICY IF EXISTS "Users can view their own usage logs" ON public.usage_log;
 CREATE POLICY "Users can view their own usage logs" 
   ON public.usage_log FOR SELECT 
   USING (auth.uid() = user_id);
 
 -- Create policy for the service to insert usage logs
+DROP POLICY IF EXISTS "Service can insert usage logs" ON public.usage_log;
 CREATE POLICY "Service can insert usage logs" 
   ON public.usage_log FOR INSERT 
   WITH CHECK (true); 

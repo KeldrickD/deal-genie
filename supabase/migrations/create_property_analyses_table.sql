@@ -25,24 +25,28 @@ CREATE INDEX IF NOT EXISTS property_analyses_user_id_idx ON public.property_anal
 ALTER TABLE public.property_analyses ENABLE ROW LEVEL SECURITY;
 
 -- Create policy to restrict users to only see their own analyses
+DROP POLICY IF EXISTS "Users can only see their own analyses" ON public.property_analyses;
 CREATE POLICY "Users can only see their own analyses" 
   ON public.property_analyses 
   FOR SELECT 
   USING (auth.uid() = user_id);
 
 -- Create policy to allow users to insert their own analyses
+DROP POLICY IF EXISTS "Users can insert their own analyses" ON public.property_analyses;
 CREATE POLICY "Users can insert their own analyses" 
   ON public.property_analyses 
   FOR INSERT 
   WITH CHECK (auth.uid() = user_id);
 
 -- Create policy to allow users to update their own analyses
+DROP POLICY IF EXISTS "Users can update their own analyses" ON public.property_analyses;
 CREATE POLICY "Users can update their own analyses" 
   ON public.property_analyses 
   FOR UPDATE 
   USING (auth.uid() = user_id);
 
 -- Create policy to allow users to delete their own analyses
+DROP POLICY IF EXISTS "Users can delete their own analyses" ON public.property_analyses;
 CREATE POLICY "Users can delete their own analyses" 
   ON public.property_analyses 
   FOR DELETE 

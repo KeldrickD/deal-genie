@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS idx_leads_user_id ON public.leads(user_id);
 ALTER TABLE public.leads ENABLE ROW LEVEL SECURITY;
 
 -- Leads can be read/modified by the owner
+DROP POLICY IF EXISTS "Users can CRUD their own leads" ON public.leads;
 CREATE POLICY "Users can CRUD their own leads"
 ON public.leads
 USING (user_id = auth.uid()); 
