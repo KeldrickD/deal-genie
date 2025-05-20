@@ -15,6 +15,7 @@ interface AddDealFormProps {
   onDealAdded: () => void; // Callback to notify parent when a deal is added
   supabase: SupabaseClient<Database> | null; // Add supabase client prop
   userId: string | undefined; // Add userId prop
+  compact?: boolean; // Add compact mode prop
 }
 
 // Define possible deal statuses
@@ -27,7 +28,7 @@ const dealStatuses = [
   "Lost"
 ];
 
-export default function AddDealForm({ onDealAdded, supabase, userId }: AddDealFormProps) {
+export default function AddDealForm({ onDealAdded, supabase, userId, compact = false }: AddDealFormProps) {
   const [dealName, setDealName] = useState('');
   const [address, setAddress] = useState('');
   const [status, setStatus] = useState(''); // Keep state variable, it will hold the selected value
@@ -119,8 +120,8 @@ export default function AddDealForm({ onDealAdded, supabase, userId }: AddDealFo
   }, [supabase, userId, dealName, address, status, propertyType, purchasePrice, arv, rehabCost, noi, capRate, loanAmount, interestRate, loanTermYears, note, onDealAdded]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 p-4 border rounded-lg bg-white shadow-sm">
-      <h3 className="text-lg font-semibold border-b pb-2">Add New Deal</h3>
+    <form onSubmit={handleSubmit} className={`space-y-4 ${!compact && 'p-4 border rounded-lg bg-white shadow-sm'}`}>
+      {!compact && <h3 className="text-lg font-semibold border-b pb-2">Add New Deal</h3>}
       
       {error && (
         <Alert variant="destructive">
@@ -137,156 +138,235 @@ export default function AddDealForm({ onDealAdded, supabase, userId }: AddDealFo
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="dealName">Deal Name</Label>
-          <Input 
-            id="dealName"
-            type="text"
-            value={dealName}
-            onChange={(e) => setDealName(e.target.value)}
-            placeholder="e.g., Main St Property"
-            disabled={isLoading}
-          />
+      {/* In compact mode, show a more condensed layout with just essential fields */}
+      {compact ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="dealName">Deal Name</Label>
+              <Input 
+                id="dealName"
+                type="text"
+                value={dealName}
+                onChange={(e) => setDealName(e.target.value)}
+                placeholder="e.g., Main St Property"
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <Label htmlFor="address">Address</Label>
+              <Input 
+                id="address"
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g., 123 Main St, Anytown"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select 
+                value={status} 
+                onValueChange={setStatus}
+                disabled={isLoading}
+              >
+                <SelectTrigger id="status">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {dealStatuses.map((stat) => (
+                    <SelectItem key={stat} value={stat}>
+                      {stat}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="propertyType">Property Type</Label>
+              <Input 
+                id="propertyType"
+                type="text"
+                value={propertyType}
+                onChange={(e) => setPropertyType(e.target.value)}
+                placeholder="e.g., SFH, Duplex"
+                disabled={isLoading}
+              />
+            </div>
+            <div>
+              <Label htmlFor="purchasePrice">Purchase Price ($)</Label>
+              <Input 
+                id="purchasePrice"
+                type="number"
+                step="any"
+                value={purchasePrice}
+                onChange={(e) => setPurchasePrice(e.target.value)}
+                placeholder="e.g., 250000"
+                disabled={isLoading}
+              />
+            </div>
+          </div>
+          
+          <Button type="submit" disabled={isLoading || !userId} className="w-full">
+            {isLoading ? 'Adding Deal...' : 'Add Deal'}
+          </Button>
         </div>
-        <div>
-          <Label htmlFor="address">Address</Label>
-          <Input 
-            id="address"
-            type="text"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="e.g., 123 Main St, Anytown"
-            disabled={isLoading}
-          />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="dealName">Deal Name</Label>
+            <Input 
+              id="dealName"
+              type="text"
+              value={dealName}
+              onChange={(e) => setDealName(e.target.value)}
+              placeholder="e.g., Main St Property"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="address">Address</Label>
+            <Input 
+              id="address"
+              type="text"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="e.g., 123 Main St, Anytown"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="status">Status</Label>
+            <Select 
+              value={status} 
+              onValueChange={setStatus} // Use onValueChange to update state
+              disabled={isLoading}
+            >
+              <SelectTrigger id="status">
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                {dealStatuses.map((stat) => (
+                  <SelectItem key={stat} value={stat}>
+                    {stat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label htmlFor="propertyType">Property Type</Label>
+            <Input 
+              id="propertyType"
+              type="text"
+              value={propertyType}
+              onChange={(e) => setPropertyType(e.target.value)}
+              placeholder="e.g., SFH, Duplex"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="purchasePrice">Purchase Price ($)</Label>
+            <Input 
+              id="purchasePrice"
+              type="number"
+              step="any"
+              value={purchasePrice}
+              onChange={(e) => setPurchasePrice(e.target.value)}
+              placeholder="e.g., 250000"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="arv">ARV ($)</Label>
+            <Input 
+              id="arv"
+              type="number"
+              step="any"
+              value={arv}
+              onChange={(e) => setArv(e.target.value)}
+              placeholder="e.g., 350000"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="rehabCost">Rehab Cost ($)</Label>
+            <Input 
+              id="rehabCost"
+              type="number"
+              step="any"
+              value={rehabCost}
+              onChange={(e) => setRehabCost(e.target.value)}
+              placeholder="e.g., 50000"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="noi">Est. Annual NOI ($)</Label>
+            <Input 
+              id="noi"
+              type="number"
+              step="any"
+              value={noi}
+              onChange={(e) => setNoi(e.target.value)}
+              placeholder="e.g., 24000"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="capRate">Cap Rate (%)</Label>
+            <Input 
+              id="capRate"
+              type="number"
+              step="any"
+              value={capRate}
+              onChange={(e) => setCapRate(e.target.value)}
+              placeholder="e.g., 8.5"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="loanAmount">Loan Amount ($)</Label>
+            <Input 
+              id="loanAmount"
+              type="number"
+              step="any"
+              value={loanAmount}
+              onChange={(e) => setLoanAmount(e.target.value)}
+              placeholder="e.g., 200000"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="interestRate">Interest Rate (%)</Label>
+            <Input 
+              id="interestRate"
+              type="number"
+              step="any"
+              value={interestRate}
+              onChange={(e) => setInterestRate(e.target.value)}
+              placeholder="e.g., 7.25"
+              disabled={isLoading}
+            />
+          </div>
+          <div>
+            <Label htmlFor="loanTermYears">Loan Term (Years)</Label>
+            <Input 
+              id="loanTermYears"
+              type="number"
+              step="1"
+              value={loanTermYears}
+              onChange={(e) => setLoanTermYears(e.target.value)}
+              placeholder="e.g., 30"
+              disabled={isLoading}
+            />
+          </div>
         </div>
-        <div>
-          <Label htmlFor="status">Status</Label>
-          <Select 
-            value={status} 
-            onValueChange={setStatus} // Use onValueChange to update state
-            disabled={isLoading}
-          >
-            <SelectTrigger id="status">
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              {dealStatuses.map((stat) => (
-                <SelectItem key={stat} value={stat}>
-                  {stat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="propertyType">Property Type</Label>
-          <Input 
-            id="propertyType"
-            type="text"
-            value={propertyType}
-            onChange={(e) => setPropertyType(e.target.value)}
-            placeholder="e.g., SFH, Duplex"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="purchasePrice">Purchase Price ($)</Label>
-          <Input 
-            id="purchasePrice"
-            type="number"
-            step="any"
-            value={purchasePrice}
-            onChange={(e) => setPurchasePrice(e.target.value)}
-            placeholder="e.g., 250000"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="arv">ARV ($)</Label>
-          <Input 
-            id="arv"
-            type="number"
-            step="any"
-            value={arv}
-            onChange={(e) => setArv(e.target.value)}
-            placeholder="e.g., 350000"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="rehabCost">Rehab Cost ($)</Label>
-          <Input 
-            id="rehabCost"
-            type="number"
-            step="any"
-            value={rehabCost}
-            onChange={(e) => setRehabCost(e.target.value)}
-            placeholder="e.g., 50000"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="noi">Est. Annual NOI ($)</Label>
-          <Input 
-            id="noi"
-            type="number"
-            step="any"
-            value={noi}
-            onChange={(e) => setNoi(e.target.value)}
-            placeholder="e.g., 24000"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="capRate">Cap Rate (%)</Label>
-          <Input 
-            id="capRate"
-            type="number"
-            step="any"
-            value={capRate}
-            onChange={(e) => setCapRate(e.target.value)}
-            placeholder="e.g., 8.5"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="loanAmount">Loan Amount ($)</Label>
-          <Input 
-            id="loanAmount"
-            type="number"
-            step="any"
-            value={loanAmount}
-            onChange={(e) => setLoanAmount(e.target.value)}
-            placeholder="e.g., 200000"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="interestRate">Interest Rate (%)</Label>
-          <Input 
-            id="interestRate"
-            type="number"
-            step="any"
-            value={interestRate}
-            onChange={(e) => setInterestRate(e.target.value)}
-            placeholder="e.g., 7.25"
-            disabled={isLoading}
-          />
-        </div>
-        <div>
-          <Label htmlFor="loanTermYears">Loan Term (Years)</Label>
-          <Input 
-            id="loanTermYears"
-            type="number"
-            step="1"
-            value={loanTermYears}
-            onChange={(e) => setLoanTermYears(e.target.value)}
-            placeholder="e.g., 30"
-            disabled={isLoading}
-          />
-        </div>
-      </div>
+      )}
 
       <div className="col-span-1 md:col-span-2">
         <Label htmlFor="note">Notes</Label>

@@ -838,6 +838,32 @@ export default function Dashboard() {
                               </p>
                             )}
                           </div>
+                          
+                          {/* Add "Add & Import Deals" section directly in the Properties Dashboard card */}
+                          <div className="mt-8 pt-6 border-t border-gray-200">
+                            <div className="flex items-center justify-between mb-4">
+                              <h3 className="text-lg font-semibold">Add & Import Deals</h3>
+                              <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
+                                {showLeadImporter ? 'Hide' : 'Show'} Importer
+                              </Button>
+                            </div>
+                            
+                            {showLeadImporter && (
+                              <div className="mb-6">
+                                <LeadImporter />
+                              </div>
+                            )}
+                            
+                            <div id="genie2-add-deal-form" className="bg-gray-50 rounded-lg p-4 mt-4">
+                              <h3 className="text-md font-semibold mb-4">Add New Deal</h3>
+                              <AddDealForm 
+                                onDealAdded={handleDealAdded} 
+                                supabase={supabase} 
+                                userId={user?.id}
+                                compact={true} 
+                              />
+                            </div>
+                          </div>
                         </CardContent>
                       </Card>
                     </TabsContent>
@@ -912,30 +938,32 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* Move Lead Importer and Add Deal sections below the main dashboard content */}
-          <div className="mt-12 pt-6 border-t border-gray-200">
-            <h2 className="text-2xl font-semibold mb-6">Add & Import Deals</h2>
-            
-            {/* Lead Importer */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold">Import Leads</h3>
-                <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
-                  {showLeadImporter ? 'Hide' : 'Show'} Importer
-                </Button>
-              </div>
+          {/* Move Lead Importer and Add Deal sections below the main dashboard content - only show in Classic view */}
+          {dashboardView === 'classic' && (
+            <div className="mt-12 pt-6 border-t border-gray-200">
+              <h2 className="text-2xl font-semibold mb-6">Add & Import Deals</h2>
               
-              {showLeadImporter && (
-                <LeadImporter />
-            )}
-          </div>
+              {/* Lead Importer */}
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xl font-bold">Import Leads</h3>
+                  <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
+                    {showLeadImporter ? 'Hide' : 'Show'} Importer
+                  </Button>
+                </div>
+                
+                {showLeadImporter && (
+                  <LeadImporter />
+                )}
+              </div>
 
-          {/* Add Deal Form */}
-          <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
-              <h3 className="text-xl font-semibold mb-6">Add New Deal</h3>
-            <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
+              {/* Add Deal Form */}
+              <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-xl font-semibold mb-6">Add New Deal</h3>
+                <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Add GenieDecision component to deals with analysis data */}
           {dealToEdit && dealToEdit.analysis_data && (
