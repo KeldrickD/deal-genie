@@ -34,7 +34,6 @@ import XpSystem from '@/components/XpSystem';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import GenieDecision from '@/components/GenieDecision'; 
 import TrialBanner from '@/components/TrialBanner';
-import MobileOptimizedDashboard from '@/components/MobileOptimizedDashboard';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import SocialProofWidget from '@/components/SocialProofWidget';
 import XPProgressCard from '@/components/XPProgressCard';
@@ -523,7 +522,7 @@ export default function Dashboard() {
               <Button
                 variant={dashboardView === 'classic' ? 'default' : 'outline'}
                 onClick={() => setDashboardView('classic')}
-                className="relative"
+                className="relative flex-1 md:flex-none"
                 size="sm"
               >
                 Classic View
@@ -531,7 +530,7 @@ export default function Dashboard() {
               <Button
                 variant={dashboardView === 'genie2' ? 'default' : 'outline'}
                 onClick={() => setDashboardView('genie2')}
-                className="relative"
+                className="relative flex-1 md:flex-none"
                 size="sm"
               >
                 Genie 2.0
@@ -613,9 +612,9 @@ export default function Dashboard() {
 
           {/* After the welcome section and before the deals list: */}
           {dashboardView === 'classic' && (
-            <div className="mb-6">
-              <XpSystem />
-            </div>
+          <div className="mb-6">
+            <XpSystem />
+          </div>
           )}
 
           {/* Check if any usage limits are reached and show upgrade prompt */}
@@ -644,7 +643,7 @@ export default function Dashboard() {
             )}
 
           {/* Deal management section */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+          <div className="bg-white rounded-lg shadow-md p-4 md:p-6 mb-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
               <h2 className="text-2xl font-semibold mb-2 sm:mb-0">Your Deals</h2>
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
@@ -700,78 +699,78 @@ export default function Dashboard() {
             {dashboardView === 'classic' ? (
               // Classic view - show the regular deals table or pipeline
               viewMode === 'list' ? (
-                deals.length > 0 ? (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full bg-white">
-                      <thead className="bg-gray-100">
-                        <tr>
-                          <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                          <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                          <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                          <th className="py-2 px-4 border-b text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              deals.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full bg-white">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="py-2 px-4 border-b text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                        <th className="py-2 px-4 border-b text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {filteredDeals.map(deal => (
+                        <tr key={deal.id} className="hover:bg-gray-50">
+                          <td className="py-2 px-4">
+                            <Link href={`/deals/${deal.id}`} className="text-blue-600 hover:underline">
+                              {deal.deal_name || 'Unnamed Deal'}
+                            </Link>
+                          </td>
+                          <td className="py-2 px-4">{deal.address || '-'}</td>
+                          <td className="py-2 px-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${getStatusStyle(deal.status)}`}>
+                              {deal.status || 'No Status'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-4">{formatCurrency(deal.purchase_price)}</td>
+                          <td className="py-2 px-4 text-right">
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => setEditingDealId(deal.id)} 
+                              className="text-blue-600 hover:text-blue-800 mr-2"
+                              disabled={!!deletingDealId}
+                            >
+                              Edit
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              onClick={() => handleDeleteDeal(deal.id)} 
+                              className="text-red-600 hover:text-red-800"
+                              disabled={deletingDealId === deal.id}
+                            >
+                              {deletingDealId === deal.id ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {filteredDeals.map(deal => (
-                          <tr key={deal.id} className="hover:bg-gray-50">
-                            <td className="py-2 px-4">
-                              <Link href={`/deals/${deal.id}`} className="text-blue-600 hover:underline">
-                                {deal.deal_name || 'Unnamed Deal'}
-                              </Link>
-                            </td>
-                            <td className="py-2 px-4">{deal.address || '-'}</td>
-                            <td className="py-2 px-4">
-                              <span className={`px-2 py-1 text-xs rounded-full ${getStatusStyle(deal.status)}`}>
-                                {deal.status || 'No Status'}
-                              </span>
-                            </td>
-                            <td className="py-2 px-4">{formatCurrency(deal.purchase_price)}</td>
-                            <td className="py-2 px-4 text-right">
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => setEditingDealId(deal.id)} 
-                                className="text-blue-600 hover:text-blue-800 mr-2"
-                                disabled={!!deletingDealId}
-                              >
-                                Edit
-                              </Button>
-                              <Button 
-                                variant="ghost" 
-                                onClick={() => handleDeleteDeal(deal.id)} 
-                                className="text-red-600 hover:text-red-800"
-                                disabled={deletingDealId === deal.id}
-                              >
-                                {deletingDealId === deal.id ? 'Deleting...' : 'Delete'}
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    No deals found. Add your first deal below.
-                  </div>
-                )
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No deals found. Add your first deal below.
+                </div>
+              )
+            ) : (
                 // Pipeline view
                 <div>
-                  <PipelineFilters onFilterChange={setPipelineFilters} />
-                  
-                  <DealPipeline 
-                    deals={filteredPipelineDeals} 
-                    supabase={supabase} 
-                    onDealUpdated={handleDealUpdated}
-                    onDeleteDeal={handleDeleteDeal}
-                  />
-                  
-                  {filteredPipelineDeals.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      No deals match your filter criteria. Try adjusting your filters.
-                    </div>
-                  )}
+                <PipelineFilters onFilterChange={setPipelineFilters} />
+                
+                <DealPipeline 
+                  deals={filteredPipelineDeals} 
+                  supabase={supabase} 
+                  onDealUpdated={handleDealUpdated}
+                  onDeleteDeal={handleDeleteDeal}
+                />
+                
+                {filteredPipelineDeals.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No deals match your filter criteria. Try adjusting your filters.
+                  </div>
+                )}
                 </div>
               )
             ) : (
@@ -782,7 +781,6 @@ export default function Dashboard() {
                   <Tabs defaultValue="dashboard" className="w-full">
                     <TabsList className="w-full">
                       <TabsTrigger value="dashboard" className="flex-1">Dashboard</TabsTrigger>
-                      <TabsTrigger value="mobile" className="flex-1">Mobile View</TabsTrigger>
                       <TabsTrigger value="social" className="flex-1">Social Activity</TabsTrigger>
                     </TabsList>
                     
@@ -795,29 +793,43 @@ export default function Dashboard() {
                           </CardDescription>
                         </CardHeader>
                         <CardContent>
-                          {/* This could include the actual deals */}
+                          {/* Mobile-optimized deals list */}
                           <div className="space-y-4">
                             {filteredDeals.length > 0 ? (
                               filteredDeals.map(deal => (
-                                <div key={deal.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                                     onClick={() => setEditingDealId(deal.id)}>
-                                  <div className="flex justify-between">
-                                    <h3 className="font-medium">{deal.deal_name || 'Unnamed Deal'}</h3>
-                                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusStyle(deal.status)}`}>
-                                      {deal.status || 'No Status'}
-                                    </span>
-                                  </div>
-                                  <p className="text-gray-600 text-sm mt-1">{deal.address || 'No address'}</p>
-                                  <div className="flex justify-between mt-2 text-sm">
-                                    <span>
-                                      {formatCurrency(deal.purchase_price || 0)}
-                                    </span>
-                                    {deal.analysis_data && (
-                                      <span className="font-medium">
-                                        Deal Score: {(deal.analysis_data as any)?.deal_score || 'N/A'}
+                                <div 
+                                  key={deal.id} 
+                                  className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                  onClick={() => setEditingDealId(deal.id)}
+                                >
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="mb-2 sm:mb-0">
+                                      <h3 className="font-medium">{deal.deal_name || 'Unnamed Deal'}</h3>
+                                      <p className="text-gray-600 text-sm mt-1">{deal.address || 'No address'}</p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2 items-center">
+                                      <span className={`px-2 py-1 rounded-full text-xs ${getStatusStyle(deal.status)}`}>
+                                        {deal.status || 'No Status'}
                                       </span>
-                                    )}
+                                      <span className="text-sm font-semibold">
+                                        {formatCurrency(deal.purchase_price || 0)}
+                                      </span>
+                                    </div>
                                   </div>
+                                  {deal.analysis_data && (
+                                    <div className="mt-3 pt-3 border-t border-gray-100">
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-gray-600">Deal Score:</span>
+                                        <span className="font-medium">{(deal.analysis_data as any)?.deal_score || 'N/A'}</span>
+                                      </div>
+                                      {(deal.analysis_data as any)?.arv && (
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">ARV:</span>
+                                          <span>{formatCurrency((deal.analysis_data as any)?.arv)}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
                               ))
                             ) : (
@@ -825,16 +837,6 @@ export default function Dashboard() {
                                 No deals found. Add your first property to get started!
                               </p>
                             )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </TabsContent>
-                    
-                    <TabsContent value="mobile" className="mt-4">
-                      <Card className="border-0 shadow-sm overflow-hidden">
-                        <CardContent className="p-0">
-                          <div className="max-w-md mx-auto border-x border-gray-200 h-[600px] overflow-y-auto">
-                            <MobileOptimizedDashboard />
                           </div>
                         </CardContent>
                       </Card>
@@ -925,16 +927,16 @@ export default function Dashboard() {
               
               {showLeadImporter && (
                 <LeadImporter />
-              )}
-            </div>
+            )}
+          </div>
 
-            {/* Add Deal Form */}
-            <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
+          {/* Add Deal Form */}
+          <div id="add-deal-form" className="bg-white rounded-lg shadow-md p-6">
               <h3 className="text-xl font-semibold mb-6">Add New Deal</h3>
-              <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
+            <AddDealForm onDealAdded={handleDealAdded} supabase={supabase} userId={user?.id} />
             </div>
           </div>
-          
+
           {/* Add GenieDecision component to deals with analysis data */}
           {dealToEdit && dealToEdit.analysis_data && (
             <div className="mt-3">
