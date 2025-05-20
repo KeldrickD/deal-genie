@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Share2, ExternalLink, Heart, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
 import MobileOptimizedDashboard from '@/components/MobileOptimizedDashboard';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
 import SocialProofWidget from '@/components/SocialProofWidget';
@@ -24,7 +23,7 @@ export default function Genie2Dashboard() {
   // Redirect if not logged in
   useEffect(() => {
     if (!user) {
-      router.push('/auth');
+      router.push('/login');
     }
   }, [user, router]);
   
