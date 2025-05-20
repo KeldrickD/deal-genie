@@ -23,6 +23,7 @@
   "env": {
     "NEXT_PUBLIC_ENABLE_GENIE_NET": "true",
     "SKIP_ESLINT": "1",
-    "NEXT_TELEMETRY_DISABLED": "1"
+    "NEXT_TELEMETRY_DISABLED": "1",
+    "ATTOM_API_KEY": "YOUR_ATTOM_API_KEY_HERE"
   }
 } 
