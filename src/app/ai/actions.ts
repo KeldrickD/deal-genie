@@ -455,7 +455,7 @@ export async function analyzePropertyWithPreferences(
 }
 
 // Genie Deal Score™: Weighted scoring using ATTOM fields and Smart Scout
-export function calculateGenieDealScore(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): number {
+export async function calculateGenieDealScore(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): Promise<number> {
     if (!attomData) return 0;
     // --- Scoring Matrix ---
     let score = 0;
@@ -576,7 +576,7 @@ export function calculateGenieDealScore(attomData: any, options?: { zipScore?: n
 }
 
 // Helper: Return subscore breakdown for radar chart
-export function getGenieDealScoreBreakdown(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): Record<string, number> {
+export async function getGenieDealScoreBreakdown(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): Promise<Record<string, number>> {
     if (!attomData) return {};
     
     // Subscores for radar chart

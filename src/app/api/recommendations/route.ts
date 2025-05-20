@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/utils/supabase/server';
 import { getServerSession } from '@/lib/session';
 import { calculateGenieDealScore } from '@/app/ai/actions';
 
@@ -76,9 +76,9 @@ export async function GET(request: NextRequest) {
     
     // 4. Score and rank properties
     // Calculate a personalized score for each property
-    const scoredProperties = recommendedProperties?.map(property => {
+    const scoredProperties = await Promise.all(recommendedProperties?.map(async property => {
       // Base score is the Deal Score
-      let score = calculateGenieDealScore(property.attom_data || property);
+      let score = await calculateGenieDealScore(property.attom_data || property);
       
       // Adjust score based on user preferences
       if (property.propertyType === userPreferences.preferredPropertyType) {
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
         ...property,
         personalized_score: score
       };
-    });
+    }) || []);
     
     // Sort by personalized score and limit to requested count
     const finalRecommendations = scoredProperties
