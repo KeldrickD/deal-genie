@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useAuthContext } from '@/components/AuthProvider';
@@ -85,20 +85,39 @@ const getStatusStyle = (status: string | null | undefined): string => {
   }
 };
 
+// Create a client component to handle the query params
+function DashboardViewSwitcher({ onViewChange }: { onViewChange: (view: 'classic' | 'genie2') => void }) {
+  // This needs to be in its own component since useSearchParams() must be
+  // used in a component wrapped with Suspense
+  const searchParams = useSearchParams();
+  
+  // Get the view from URL query parameter if present
+  const viewParam = searchParams.get('view');
+  
+  useEffect(() => {
+    // Set the view based on the URL parameter
+    if (viewParam === 'genie2') {
+      onViewChange('genie2');
+    }
+  }, [viewParam, onViewChange]);
+  
+  return null; // This component doesn't render anything
+}
+
 export default function Dashboard() {
   // Get supabase instance from context
   const { user, session, loading: authLoading, supabase, isAuthenticated, signOut } = useAuthContext(); 
   const router = useRouter(); // Get router instance
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  
-  // Get the view from URL query parameter if present
-  const viewParam = searchParams.get('view');
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [pageStatus, setPageStatus] = useState<'loading_auth' | 'loading_data' | 'error' | 'loaded'>('loading_auth');
   const [error, setError] = useState<string | null>(null);
+  
+  // State for views
+  const [dashboardView, setDashboardView] = useState<'classic' | 'genie2'>('classic');
+  const [genie2AnnouncementDismissed, setGenie2AnnouncementDismissed] = useState(false);
   
   // State for profile editing
   const [isEditing, setIsEditing] = useState(false);
@@ -132,12 +151,6 @@ export default function Dashboard() {
 
   // Add a new state for Lead Importer
   const [showLeadImporter, setShowLeadImporter] = useState(false);
-
-  // Add a new state variable in the Dashboard component:
-  const [dashboardView, setDashboardView] = useState<'classic' | 'genie2'>(
-    viewParam === 'genie2' ? 'genie2' : 'classic'
-  );
-  const [genie2AnnouncementDismissed, setGenie2AnnouncementDismissed] = useState(false);
 
   useEffect(() => {
     // console.log('Dashboard page - Auth context state:', { isAuthenticated, authLoading, user: user?.email });
