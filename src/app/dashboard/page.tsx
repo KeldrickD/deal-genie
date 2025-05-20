@@ -785,6 +785,41 @@ export default function Dashboard() {
                     </TabsList>
                     
                     <TabsContent value="dashboard" className="mt-4">
+                      {/* Add & Import Deals section FIRST, above the properties list */}
+                      <Card className="border-0 shadow-sm mb-6">
+                        <CardHeader className="pb-2">
+                          <CardTitle>Add & Import Deals</CardTitle>
+                          <CardDescription>
+                            Quickly add properties to your dashboard
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg font-semibold">Import Leads</h3>
+                            <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
+                              {showLeadImporter ? 'Hide' : 'Show'} Importer
+                            </Button>
+                          </div>
+                          
+                          {showLeadImporter && (
+                            <div className="mb-6">
+                              <LeadImporter />
+                            </div>
+                          )}
+                          
+                          <div id="genie2-add-deal-form" className="bg-gray-50 rounded-lg p-4 mt-4">
+                            <h3 className="text-md font-semibold mb-4">Add New Deal</h3>
+                            <AddDealForm 
+                              onDealAdded={handleDealAdded} 
+                              supabase={supabase} 
+                              userId={user?.id}
+                              compact={true} 
+                            />
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* Properties Dashboard (moved below the Add section) */}
                       <Card className="border-0 shadow-sm">
                         <CardHeader className="pb-2">
                           <CardTitle>Properties Dashboard</CardTitle>
@@ -837,32 +872,6 @@ export default function Dashboard() {
                                 No deals found. Add your first property to get started!
                               </p>
                             )}
-                          </div>
-                          
-                          {/* Add "Add & Import Deals" section directly in the Properties Dashboard card */}
-                          <div className="mt-8 pt-6 border-t border-gray-200">
-                            <div className="flex items-center justify-between mb-4">
-                              <h3 className="text-lg font-semibold">Add & Import Deals</h3>
-                              <Button variant="outline" onClick={() => setShowLeadImporter(!showLeadImporter)}>
-                                {showLeadImporter ? 'Hide' : 'Show'} Importer
-                              </Button>
-                            </div>
-                            
-                            {showLeadImporter && (
-                              <div className="mb-6">
-                                <LeadImporter />
-                              </div>
-                            )}
-                            
-                            <div id="genie2-add-deal-form" className="bg-gray-50 rounded-lg p-4 mt-4">
-                              <h3 className="text-md font-semibold mb-4">Add New Deal</h3>
-                              <AddDealForm 
-                                onDealAdded={handleDealAdded} 
-                                supabase={supabase} 
-                                userId={user?.id}
-                                compact={true} 
-                              />
-                            </div>
                           </div>
                         </CardContent>
                       </Card>
