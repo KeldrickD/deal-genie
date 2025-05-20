@@ -612,9 +612,11 @@ export default function Dashboard() {
           </div>
 
           {/* After the welcome section and before the deals list: */}
-          <div className="mb-6">
-            <XpSystem />
-          </div>
+          {dashboardView === 'classic' && (
+            <div className="mb-6">
+              <XpSystem />
+            </div>
+          )}
 
           {/* Check if any usage limits are reached and show upgrade prompt */}
           {(usageData.analyses.current >= usageData.analyses.limit ||
@@ -860,8 +862,8 @@ export default function Dashboard() {
                 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                  {/* XP Progress */}
-                  <XPProgressCard />
+                  {/* XP Progress - It's already displayed in the sidebar of Genie 2.0 view */}
+                  {/* <XPProgressCard /> */}
                   
                   {/* Referral Widget */}
                   <ReferralWidget />
