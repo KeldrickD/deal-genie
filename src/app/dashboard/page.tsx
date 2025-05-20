@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { useAuthContext } from '@/components/AuthProvider';
 // Import necessary UI components
@@ -89,6 +89,11 @@ export default function Dashboard() {
   // Get supabase instance from context
   const { user, session, loading: authLoading, supabase, isAuthenticated, signOut } = useAuthContext(); 
   const router = useRouter(); // Get router instance
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  
+  // Get the view from URL query parameter if present
+  const viewParam = searchParams.get('view');
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -129,7 +134,9 @@ export default function Dashboard() {
   const [showLeadImporter, setShowLeadImporter] = useState(false);
 
   // Add a new state variable in the Dashboard component:
-  const [dashboardView, setDashboardView] = useState<'classic' | 'genie2'>('classic');
+  const [dashboardView, setDashboardView] = useState<'classic' | 'genie2'>(
+    viewParam === 'genie2' ? 'genie2' : 'classic'
+  );
   const [genie2AnnouncementDismissed, setGenie2AnnouncementDismissed] = useState(false);
 
   useEffect(() => {
@@ -711,22 +718,15 @@ export default function Dashboard() {
               )
             ) : (
               /* Pipeline view */
-              <>
+              <div className="mt-6">
                 <PipelineFilters onFilterChange={setPipelineFilters} />
-                
                 <DealPipeline 
-                  deals={filteredPipelineDeals} 
+                  deals={filteredDeals} 
                   supabase={supabase} 
                   onDealUpdated={handleDealUpdated}
                   onDeleteDeal={handleDeleteDeal}
                 />
-                
-                {filteredPipelineDeals.length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    No deals match your filter criteria. Try adjusting your filters.
-                  </div>
-                )}
-              </>
+              </div>
             )}
           </div>
 
