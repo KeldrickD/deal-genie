@@ -2,8 +2,12 @@ import fetch from 'node-fetch';
 
 const API_KEY = process.env.ATTOM_API_KEY as string;
 
-if (!API_KEY) {
-  throw new Error('ATTOM_API_KEY is not defined in environment variables');
+// Check if API key is available, but don't throw in development
+const isApiKeyMissing = !API_KEY;
+const isDev = process.env.NODE_ENV === 'development';
+
+if (isApiKeyMissing && !isDev) {
+  console.error('ATTOM_API_KEY is not defined in environment variables');
 }
 
 /**
@@ -12,6 +16,15 @@ if (!API_KEY) {
  * @param params - Query parameters as an object
  */
 export async function attomApiFetch(endpoint: string, params: Record<string, string | number>) {
+  if (isApiKeyMissing) {
+    if (isDev) {
+      console.warn('ATTOM_API_KEY is missing. Using mock data in development mode.');
+      return { status: 'success', mock: true };
+    } else {
+      throw new Error('ATTOM_API_KEY is not defined in environment variables');
+    }
+  }
+
   const baseUrl = 'https://api.attomdata.com/propertyapi/v1.0.0';
   const query = new URLSearchParams(params as Record<string, string>).toString();
   const url = `${baseUrl}${endpoint}?${query}`;
@@ -33,6 +46,30 @@ export async function attomApiFetch(endpoint: string, params: Record<string, str
  * @param address - Full address string
  */
 export async function getPropertyDetails(address: string) {
+  if (isApiKeyMissing) {
+    if (isDev) {
+      // Return mock data in development
+      return {
+        property: {
+          address,
+          zoning: 'R1',
+          ownership: 'Individual',
+          equity: 120000,
+          estimatedValue: 450000,
+          lastMortgageAmount: 330000,
+          marketValue: 450000,
+          yearBuilt: 2005,
+          bedrooms: 3,
+          bathrooms: 2,
+          sqft: 2100,
+          mock: true
+        }
+      };
+    } else {
+      throw new Error('ATTOM_API_KEY is not defined in environment variables');
+    }
+  }
+
   const detail = await attomApiFetch('/property/detail', { address });
   let zoning = null;
   let ownership = null;
@@ -68,6 +105,19 @@ export async function getPropertyDetails(address: string) {
  * @param address - Full address string
  */
 export async function getPropertyHistory(address: string) {
+  if (isApiKeyMissing) {
+    if (isDev) {
+      // Return mock data in development
+      return { 
+        sales: { saleTransactions: [] }, 
+        mortgage: { mortgageTransactions: [] },
+        mock: true 
+      };
+    } else {
+      throw new Error('ATTOM_API_KEY is not defined in environment variables');
+    }
+  }
+
   // Sales history
   const sales = await attomApiFetch('/saleshistory/detail', { address });
   // Mortgage history
