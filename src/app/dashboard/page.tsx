@@ -34,6 +34,14 @@ import XpSystem from '@/components/XpSystem';
 import UpgradePrompt from '@/components/UpgradePrompt';
 import GenieDecision from '@/components/GenieDecision'; 
 import TrialBanner from '@/components/TrialBanner';
+import MobileOptimizedDashboard from '@/components/MobileOptimizedDashboard';
+import AnnouncementBanner from '@/components/AnnouncementBanner';
+import SocialProofWidget from '@/components/SocialProofWidget';
+import XPProgressCard from '@/components/XPProgressCard';
+import ReferralWidget from '@/components/ReferralWidget';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { BookOpen, ExternalLink } from "lucide-react";
 
 // Define types for Profile and Deal based on your src/types/supabase.ts
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -119,6 +127,10 @@ export default function Dashboard() {
 
   // Add a new state for Lead Importer
   const [showLeadImporter, setShowLeadImporter] = useState(false);
+
+  // Add a new state variable in the Dashboard component:
+  const [dashboardView, setDashboardView] = useState<'classic' | 'genie2'>('classic');
+  const [genie2AnnouncementDismissed, setGenie2AnnouncementDismissed] = useState(false);
 
   useEffect(() => {
     // console.log('Dashboard page - Auth context state:', { isAuthenticated, authLoading, user: user?.email });
@@ -739,6 +751,235 @@ export default function Dashboard() {
                 confidence={(dealToEdit.analysis_data as unknown as AnalysisData).confidence || 75}
                 showDetails={false}
               />
+            </div>
+          )}
+
+          {/* Replace the content of the dashboard after loading check with this tabbed interface */}
+          {/* Inside the return statement, after the <TrialBanner> part: */}
+
+          {/* Inside the return statement, find where the main dashboard content starts */}
+          {/* Usually after banners, notifications and headings */}
+          {/* Around line 220, add: */}
+
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-2">
+              <Button
+                variant={dashboardView === 'classic' ? 'default' : 'outline'}
+                onClick={() => setDashboardView('classic')}
+                className="relative"
+                size="sm"
+              >
+                Classic View
+              </Button>
+              <Button
+                variant={dashboardView === 'genie2' ? 'default' : 'outline'}
+                onClick={() => setDashboardView('genie2')}
+                className="relative"
+                size="sm"
+              >
+                Genie 2.0
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-xs rounded-full px-1.5 py-0.5">New</span>
+              </Button>
+            </div>
+          </div>
+          
+          {dashboardView === 'genie2' && !genie2AnnouncementDismissed && (
+            <AnnouncementBanner
+              title="Welcome to Deal Genie 2.0! 🚀"
+              features={[
+                "Mobile-optimized dashboard for on-the-go investing",
+                "XP & level progression to track your real estate journey",
+                "Social proof with investor activity and testimonials",
+                "Referral system to grow your network and earn rewards",
+                "Weekly personalized property recommendations via email"
+              ]}
+              onDismiss={() => setGenie2AnnouncementDismissed(true)}
+              variant="success"
+            />
+          )}
+
+          {dashboardView === 'classic' ? (
+            // Original Dashboard Content
+            <>
+              {/* Keep original dashboard controls and view switch */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                {/* Your existing dashboard controls */}
+              </div>
+              
+              {/* Original view toggle */}
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <Button 
+                    variant={viewMode === 'list' ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => setViewMode('list')}
+                    className="rounded-r-none"
+                  >
+                    List View
+                  </Button>
+                  <Button 
+                    variant={viewMode === 'pipeline' ? 'default' : 'outline'} 
+                    size="sm" 
+                    onClick={() => setViewMode('pipeline')}
+                    className="rounded-l-none"
+                  >
+                    Pipeline
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Original content - keep this as is */}
+              {viewMode === 'pipeline' ? (
+                <div className="mt-6">
+                  <PipelineFilters 
+                    filters={pipelineFilters} 
+                    onFiltersChange={setPipelineFilters} 
+                  />
+                  <DealPipeline 
+                    deals={filteredDeals} 
+                    onDealClick={(dealId) => setEditingDealId(dealId)}
+                    onStatusChange={handleStatusChange}
+                  />
+                </div>
+              ) : (
+                // The list view content remains unchanged
+                <>
+                  {/* Your existing list view */}
+                </>
+              )}
+            </>
+          ) : (
+            // Genie 2.0 Dashboard Content
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Content Area */}
+              <div className="lg:col-span-2 space-y-6">
+                <Tabs defaultValue="dashboard" className="w-full">
+                  <TabsList className="w-full">
+                    <TabsTrigger value="dashboard" className="flex-1">Dashboard</TabsTrigger>
+                    <TabsTrigger value="mobile" className="flex-1">Mobile View</TabsTrigger>
+                    <TabsTrigger value="social" className="flex-1">Social Activity</TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="dashboard" className="mt-4">
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle>Properties Dashboard</CardTitle>
+                        <CardDescription>
+                          Your real estate investment opportunities
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        {/* This could include the actual deals */}
+                        <div className="space-y-4">
+                          {filteredDeals.length > 0 ? (
+                            filteredDeals.map(deal => (
+                              <div key={deal.id} className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                                   onClick={() => setEditingDealId(deal.id)}>
+                                <div className="flex justify-between">
+                                  <h3 className="font-medium">{deal.deal_name || 'Unnamed Deal'}</h3>
+                                  <span className={`px-2 py-1 rounded-full text-xs ${getStatusStyle(deal.status)}`}>
+                                    {deal.status || 'No Status'}
+                                  </span>
+                                </div>
+                                <p className="text-gray-600 text-sm mt-1">{deal.address || 'No address'}</p>
+                                <div className="flex justify-between mt-2 text-sm">
+                                  <span>
+                                    {formatCurrency(deal.purchase_price || 0)}
+                                  </span>
+                                  {deal.analysis_data && (
+                                    <span className="font-medium">
+                                      Deal Score: {(deal.analysis_data as any)?.deal_score || 'N/A'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-center py-12 text-muted-foreground">
+                              No deals found. Add your first property to get started!
+                            </p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="mobile" className="mt-4">
+                    <Card className="border-0 shadow-sm overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="max-w-md mx-auto border-x border-gray-200 h-[600px] overflow-y-auto">
+                          <MobileOptimizedDashboard />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                  
+                  <TabsContent value="social" className="mt-4">
+                    <Card className="border-0 shadow-sm">
+                      <CardHeader className="pb-2">
+                        <CardTitle>Property Social Activity</CardTitle>
+                        <CardDescription>
+                          See what other investors are saying
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-4">
+                          {/* Social proof widgets */}
+                          <SocialProofWidget propertyId="property-123" />
+                          <SocialProofWidget propertyId="property-456" compact={true} />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TabsContent>
+                </Tabs>
+              </div>
+              
+              {/* Sidebar */}
+              <div className="space-y-6">
+                {/* XP Progress */}
+                <XPProgressCard />
+                
+                {/* Referral Widget */}
+                <ReferralWidget />
+                
+                {/* Quick Links */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-base">Resources</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      <li>
+                        <Link href="/dashboard/picks" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors">
+                          <div className="flex items-center">
+                            <BookOpen className="h-4 w-4 text-primary mr-2" />
+                            <span>Weekly Genie Picks</span>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/dashboard/market-trends" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors">
+                          <div className="flex items-center">
+                            <BookOpen className="h-4 w-4 text-primary mr-2" />
+                            <span>Market Trends</span>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                      </li>
+                      <li>
+                        <Link href="/dashboard/settings" className="flex items-center justify-between p-2 hover:bg-gray-50 rounded-md transition-colors">
+                          <div className="flex items-center">
+                            <BookOpen className="h-4 w-4 text-primary mr-2" />
+                            <span>Notification Settings</span>
+                          </div>
+                          <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                        </Link>
+                      </li>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           )}
         </>
