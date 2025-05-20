@@ -862,8 +862,8 @@ export default function Dashboard() {
                 
                 {/* Sidebar */}
                 <div className="space-y-6">
-                  {/* XP Progress - It's already displayed in the sidebar of Genie 2.0 view */}
-                  {/* <XPProgressCard /> */}
+                  {/* XP Progress - Restore this component in the sidebar */}
+                  <XPProgressCard />
                   
                   {/* Referral Widget */}
                   <ReferralWidget />
