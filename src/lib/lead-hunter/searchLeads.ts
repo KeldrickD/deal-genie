@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Property } from '@/types/property';
+import { getPropertyDetails } from '@/lib/attom';
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -72,7 +73,19 @@ export async function searchLeads(params: SearchParams): Promise<Property[]> {
       return [];
     }
 
-    return data || [];
+    // Enrich each lead with Attom property details
+    const enrichedLeads = await Promise.all(
+      (data || []).map(async (lead: Property) => {
+        try {
+          const attomData = await getPropertyDetails(lead.address);
+          return { ...lead, attomData: attomData?.property || attomData };
+        } catch (err) {
+          return lead;
+        }
+      })
+    );
+
+    return enrichedLeads;
   } catch (error) {
     console.error('Error in searchLeads:', error);
     return [];

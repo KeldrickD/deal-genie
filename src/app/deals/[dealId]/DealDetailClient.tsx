@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 
 // Fix the import path for AI actions
-import { generateDealAnalysisAction, generateOfferTermsAction, StructuredAnalysis } from '@/app/ai/actions';
+import { generateDealAnalysisAction, generateOfferTermsAction, StructuredAnalysis, calculateGenieDealScore } from '@/app/ai/actions';
 import DealTimelineManager from '@/components/DealTimelineManager';
 import DealHistoryViewer from '@/components/DealHistoryViewer';
 

@@ -3,6 +3,7 @@ import { getAuth } from '@clerk/nextjs/server';
 import { db } from '@/db';
 import { CrmLeads } from '@/db/schema';
 import { v4 as uuidv4 } from 'uuid';
+import { getPropertyDetails } from '@/lib/attom';
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,6 +46,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Fetch Attom property details for enrichment
+    let attomData = null;
+    try {
+      attomData = await getPropertyDetails(leadData.address);
+    } catch (err) {
+      attomData = null;
+    }
+
     // Prepare lead data for insertion
     const newLeadData = {
       id: uuidv4(),
@@ -52,10 +61,10 @@ export async function POST(req: NextRequest) {
       propertyId: leadData.property_id || null,
       address: leadData.address,
       city: leadData.city,
-      state: leadData.state || null,
-      zipcode: leadData.zipcode || null,
-      price: leadData.price || null,
-      propertyType: leadData.property_type || null,
+      state: leadData.state || attomData?.property?.state || null,
+      zipcode: leadData.zipcode || attomData?.property?.postalcode || null,
+      price: leadData.price || attomData?.property?.lastSaleAmount || null,
+      propertyType: leadData.property_type || attomData?.property?.type || null,
       daysOnMarket: leadData.days_on_market || null,
       source: leadData.source || 'lead-genie',
       status: leadData.status || 'new',
@@ -63,7 +72,8 @@ export async function POST(req: NextRequest) {
       listingUrl: leadData.listing_url || null,
       keywordsMatched: leadData.keywords_matched ? JSON.stringify(leadData.keywords_matched) : null,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      attomData: attomData?.property || attomData || null
     };
 
     // Insert the new lead

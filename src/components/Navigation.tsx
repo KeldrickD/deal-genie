@@ -91,10 +91,7 @@ export default function Navigation() {
           <div className="hidden md:flex items-center space-x-8">
             {isAuthenticated ? (
               <>
-                <Link href="/dashboard" className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}>Dashboard</Link>
-                <Link href="/bulk-analysis" className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}>Genie Analyzer</Link>
-                <Link href="/offers" className={`text-gray-600 hover:text-indigo-600 ${isActive('/offers') ? 'text-indigo-600 font-medium' : ''}`}>Genie Offer Engine</Link>
-                <Link href="/lead-genie/search" className={`text-gray-600 hover:text-indigo-600 ${isActive('/lead-genie') ? 'text-indigo-600 font-medium' : ''}`}>Lead Genie</Link>
+                                <Link href="/dashboard" className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}>Dashboard</Link>                <Link href="/dashboard/genie2" className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard/genie2') ? 'text-indigo-600 font-medium' : ''}`}>                  <span className="flex items-center">                    Genie 2.0                    <span className="ml-1.5 text-xs py-0.5 px-1.5 bg-green-100 text-green-800 rounded-full">New</span>                  </span>                </Link>                <Link href="/bulk-analysis" className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}>Genie Analyzer</Link>                <Link href="/offers" className={`text-gray-600 hover:text-indigo-600 ${isActive('/offers') ? 'text-indigo-600 font-medium' : ''}`}>Genie Offer Engine</Link>                <Link href="/lead-genie/search" className={`text-gray-600 hover:text-indigo-600 ${isActive('/lead-genie') ? 'text-indigo-600 font-medium' : ''}`}>Lead Genie</Link>
                 <Link href="/crm" className={`text-gray-600 hover:text-indigo-600 ${isActive('/crm') ? 'text-indigo-600 font-medium' : ''}`}>CRM</Link>
                 <Link href="/smart-scout" className={`text-gray-600 hover:text-indigo-600 ${isActive('/smart-scout') ? 'text-indigo-600 font-medium' : ''}`}>Smart Scout</Link>
                 <Link href="/exit-strategy" className={`text-gray-600 hover:text-indigo-600 ${isActive('/exit-strategy') ? 'text-indigo-600 font-medium' : ''}`}>Exit Strategy</Link>
@@ -204,18 +201,7 @@ export default function Navigation() {
             <div className="flex flex-col space-y-4">
               {isAuthenticated ? (
                 <>
-                  <a
-                    href="/dashboard"
-                    className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setMobileMenuOpen(false);
-                      console.log('Mobile: Navigating to dashboard');
-                      window.location.href = '/dashboard';
-                    }}
-                  >
-                    Dashboard
-                  </a>
+                                  <a                    href="/dashboard"                    className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard') ? 'text-indigo-600 font-medium' : ''}`}                    onClick={(e) => {                      e.preventDefault();                      setMobileMenuOpen(false);                      console.log('Mobile: Navigating to dashboard');                      window.location.href = '/dashboard';                    }}                  >                    Dashboard                  </a>                  <a                    href="/dashboard/genie2"                    className={`text-gray-600 hover:text-indigo-600 ${isActive('/dashboard/genie2') ? 'text-indigo-600 font-medium' : ''}`}                    onClick={(e) => {                      e.preventDefault();                      setMobileMenuOpen(false);                      window.location.href = '/dashboard/genie2';                    }}                  >                    <span className="flex items-center">                      Genie 2.0                      <span className="ml-1.5 text-xs py-0.5 px-1.5 bg-green-100 text-green-800 rounded-full">New</span>                    </span>                  </a>
                   <a
                     href="/bulk-analysis"
                     className={`text-gray-600 hover:text-indigo-600 ${isActive('/bulk-analysis') ? 'text-indigo-600 font-medium' : ''}`}

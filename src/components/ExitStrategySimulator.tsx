@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calculator, TrendingUp, DollarSign, Home, BarChart3 } from 'lucide-react';
 import { useAuthContext } from '@/components/AuthProvider';
+import { getPropertyDetails } from '@/lib/attom';
 
 interface ExitStrategySimulatorProps {
   initialData?: {
@@ -20,6 +21,7 @@ interface ExitStrategySimulatorProps {
     propertyType?: string;
   };
   onSaveResults?: (results: ExitStrategyResults) => void;
+  address?: string;
 }
 
 interface ExitStrategyResults {
@@ -32,7 +34,7 @@ interface ExitStrategyResults {
   details: Record<string, any>;
 }
 
-export default function ExitStrategySimulator({ initialData, onSaveResults }: ExitStrategySimulatorProps) {
+export default function ExitStrategySimulator({ initialData, onSaveResults, address }: ExitStrategySimulatorProps) {
   const { supabase, user } = useAuthContext();
   
   // Common inputs for all strategies
@@ -65,6 +67,8 @@ export default function ExitStrategySimulator({ initialData, onSaveResults }: Ex
   const [results, setResults] = useState<ExitStrategyResults | null>(null);
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   
+  const [attomData, setAttomData] = useState<any>(null);
+  
   // Calculate results when inputs change
   useEffect(() => {
     calculateResults();
@@ -75,6 +79,12 @@ export default function ExitStrategySimulator({ initialData, onSaveResults }: Ex
     vacancyPercent, annualPropertyTax, annualInsurance, appreciationRate,
     holdingPeriodYears, refinanceLtv
   ]);
+  
+  useEffect(() => {
+    if (address) {
+      getPropertyDetails(address).then(data => setAttomData(data?.property || data)).catch(() => setAttomData(null));
+    }
+  }, [address]);
   
   const calculateResults = () => {
     setIsCalculating(true);
@@ -357,341 +367,362 @@ export default function ExitStrategySimulator({ initialData, onSaveResults }: Ex
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <Calculator className="h-5 w-5 mr-2" />
-          Exit Strategy Simulator
-        </CardTitle>
-        <CardDescription>
-          Compare different investment strategies and exit scenarios
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Tabs value={activeStrategy} onValueChange={setActiveStrategy}>
-          <TabsList className="w-full mb-6">
-            <TabsTrigger value="flip" className="flex-1">Fix & Flip</TabsTrigger>
-            <TabsTrigger value="brrrr" className="flex-1">BRRRR</TabsTrigger>
-            <TabsTrigger value="rental" className="flex-1">Buy & Hold</TabsTrigger>
-            <TabsTrigger value="wholesale" className="flex-1">Wholesale</TabsTrigger>
-          </TabsList>
-          
-          {/* Common inputs for all strategies */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm">Property Details</h3>
-              
-              <div className="space-y-2">
-                <Label htmlFor="purchasePrice">Purchase Price</Label>
-                <Input
-                  id="purchasePrice"
-                  type="number"
-                  value={purchasePrice}
-                  onChange={(e) => setPurchasePrice(parseFloat(e.target.value) || 0)}
-                  placeholder="150000"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="rehabCost">Rehab Cost</Label>
-                <Input
-                  id="rehabCost"
-                  type="number"
-                  value={rehabCost}
-                  onChange={(e) => setRehabCost(parseFloat(e.target.value) || 0)}
-                  placeholder="25000"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="arv">After Repair Value (ARV)</Label>
-                <Input
-                  id="arv"
-                  type="number"
-                  value={arv}
-                  onChange={(e) => setArv(parseFloat(e.target.value) || 0)}
-                  placeholder="220000"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="monthlyRent">Monthly Rent</Label>
-                <Input
-                  id="monthlyRent"
-                  type="number"
-                  value={monthlyRent}
-                  onChange={(e) => setMonthlyRent(parseFloat(e.target.value) || 0)}
-                  placeholder="1500"
-                />
-              </div>
-            </div>
-          
-            {/* Strategy-specific inputs */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm">Strategy Details</h3>
-              
-              {/* Flip-specific inputs */}
-              {activeStrategy === 'flip' && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="holdingCosts">Holding Costs</Label>
-                    <Input
-                      id="holdingCosts"
-                      type="number"
-                      value={holdingCosts}
-                      onChange={(e) => setHoldingCosts(parseFloat(e.target.value) || 0)}
-                      placeholder="5000"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="sellingCosts">Selling Costs</Label>
-                    <Input
-                      id="sellingCosts"
-                      type="number"
-                      value={sellingCosts}
-                      onChange={(e) => setSellingCosts(parseFloat(e.target.value) || 0)}
-                      placeholder="13000"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="flipTimeMonths">Time to Flip (Months)</Label>
-                    <Input
-                      id="flipTimeMonths"
-                      type="number"
-                      value={flipTimeMonths}
-                      onChange={(e) => setFlipTimeMonths(parseFloat(e.target.value) || 0)}
-                      placeholder="6"
-                    />
-                  </div>
-                </>
-              )}
-              
-              {/* BRRRR and Rental common inputs */}
-              {(activeStrategy === 'brrrr' || activeStrategy === 'rental') && (
-                <>
-                  <div className="space-y-2">
-                    <Label htmlFor="downPaymentPercent">Down Payment (%)</Label>
-                    <Input
-                      id="downPaymentPercent"
-                      type="number"
-                      value={downPaymentPercent}
-                      onChange={(e) => setDownPaymentPercent(parseFloat(e.target.value) || 0)}
-                      placeholder="20"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="interestRate">Interest Rate (%)</Label>
-                    <Input
-                      id="interestRate"
-                      type="number"
-                      step="0.125"
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
-                      placeholder="5.5"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="holdingPeriodYears">Holding Period (Years)</Label>
-                    <Input
-                      id="holdingPeriodYears"
-                      type="number"
-                      value={holdingPeriodYears}
-                      onChange={(e) => setHoldingPeriodYears(parseFloat(e.target.value) || 0)}
-                      placeholder="5"
-                    />
-                  </div>
-                </>
-              )}
-              
-              {/* BRRRR-specific inputs */}
-              {activeStrategy === 'brrrr' && (
+    <div>
+      {/* Attom Property Details Section */}
+      {attomData && (
+        <div className="mb-4 p-4 border rounded bg-gray-50">
+          <h3 className="font-bold mb-2">Property Details (Attom)</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div><b>Address:</b> {attomData.address || address}</div>
+            <div><b>Beds:</b> {attomData.bedrooms}</div>
+            <div><b>Baths:</b> {attomData.bathrooms}</div>
+            <div><b>Sqft:</b> {attomData.sqft}</div>
+            <div><b>Year Built:</b> {attomData.yearBuilt}</div>
+            <div><b>Last Sale Price:</b> {attomData.lastSaleAmount}</div>
+            <div><b>Lot Size:</b> {attomData.lotSize}</div>
+            <div><b>Type:</b> {attomData.type}</div>
+            {attomData.zoning && <div><b>Zoning:</b> {attomData.zoning}</div>}
+            {attomData.ownership && <div><b>Ownership:</b> {attomData.ownership}</div>}
+            {typeof attomData.equity === 'number' && <div><b>Equity:</b> ${attomData.equity.toLocaleString()}</div>}
+          </div>
+        </div>
+      )}
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <Calculator className="h-5 w-5 mr-2" />
+            Exit Strategy Simulator
+          </CardTitle>
+          <CardDescription>
+            Compare different investment strategies and exit scenarios
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs value={activeStrategy} onValueChange={setActiveStrategy}>
+            <TabsList className="w-full mb-6">
+              <TabsTrigger value="flip" className="flex-1">Fix & Flip</TabsTrigger>
+              <TabsTrigger value="brrrr" className="flex-1">BRRRR</TabsTrigger>
+              <TabsTrigger value="rental" className="flex-1">Buy & Hold</TabsTrigger>
+              <TabsTrigger value="wholesale" className="flex-1">Wholesale</TabsTrigger>
+            </TabsList>
+            
+            {/* Common inputs for all strategies */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="space-y-4">
+                <h3 className="font-medium text-sm">Property Details</h3>
+                
                 <div className="space-y-2">
-                  <Label htmlFor="refinanceLtv">Refinance LTV (%)</Label>
+                  <Label htmlFor="purchasePrice">Purchase Price</Label>
                   <Input
-                    id="refinanceLtv"
+                    id="purchasePrice"
                     type="number"
-                    value={refinanceLtv}
-                    onChange={(e) => setRefinanceLtv(parseFloat(e.target.value) || 0)}
-                    placeholder="75"
+                    value={purchasePrice}
+                    onChange={(e) => setPurchasePrice(parseFloat(e.target.value) || 0)}
+                    placeholder="150000"
                   />
                 </div>
-              )}
-              
-              {/* Wholesale doesn't need extra inputs */}
-            </div>
-          </div>
-          
-          {/* Results display */}
-          {results && (
-            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="font-medium mb-4">
-                {results.strategy} Results
-              </h3>
-              
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                <div className="bg-white p-3 rounded-md border shadow-sm">
-                  <p className="text-sm text-gray-500 mb-1">Total ROI</p>
-                  <p className="text-lg font-bold text-blue-600">{formatPercent(results.roi)}</p>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="rehabCost">Rehab Cost</Label>
+                  <Input
+                    id="rehabCost"
+                    type="number"
+                    value={rehabCost}
+                    onChange={(e) => setRehabCost(parseFloat(e.target.value) || 0)}
+                    placeholder="25000"
+                  />
                 </div>
                 
-                <div className="bg-white p-3 rounded-md border shadow-sm">
-                  <p className="text-sm text-gray-500 mb-1">Profit</p>
-                  <p className="text-lg font-bold text-green-600">{formatCurrency(results.profitAmount)}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="arv">After Repair Value (ARV)</Label>
+                  <Input
+                    id="arv"
+                    type="number"
+                    value={arv}
+                    onChange={(e) => setArv(parseFloat(e.target.value) || 0)}
+                    placeholder="220000"
+                  />
                 </div>
                 
-                <div className="bg-white p-3 rounded-md border shadow-sm">
-                  <p className="text-sm text-gray-500 mb-1">Cash Required</p>
-                  <p className="text-lg font-bold">{formatCurrency(results.cashRequired)}</p>
-                </div>
-                
-                <div className="bg-white p-3 rounded-md border shadow-sm">
-                  <p className="text-sm text-gray-500 mb-1">Timeframe</p>
-                  <p className="text-lg font-bold">
-                    {results.timeframe < 12 
-                      ? `${results.timeframe} months` 
-                      : `${(results.timeframe / 12).toFixed(1)} years`}
-                  </p>
+                <div className="space-y-2">
+                  <Label htmlFor="monthlyRent">Monthly Rent</Label>
+                  <Input
+                    id="monthlyRent"
+                    type="number"
+                    value={monthlyRent}
+                    onChange={(e) => setMonthlyRent(parseFloat(e.target.value) || 0)}
+                    placeholder="1500"
+                  />
                 </div>
               </div>
-              
+            
+              {/* Strategy-specific inputs */}
               <div className="space-y-4">
-                {/* Strategy-specific details */}
+                <h3 className="font-medium text-sm">Strategy Details</h3>
+                
+                {/* Flip-specific inputs */}
                 {activeStrategy === 'flip' && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Total Investment:</span>
-                      <span>{formatCurrency(results.details.totalInvestment)}</span>
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="holdingCosts">Holding Costs</Label>
+                      <Input
+                        id="holdingCosts"
+                        type="number"
+                        value={holdingCosts}
+                        onChange={(e) => setHoldingCosts(parseFloat(e.target.value) || 0)}
+                        placeholder="5000"
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Sale Price (ARV):</span>
-                      <span>{formatCurrency(results.details.salePrice)}</span>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="sellingCosts">Selling Costs</Label>
+                      <Input
+                        id="sellingCosts"
+                        type="number"
+                        value={sellingCosts}
+                        onChange={(e) => setSellingCosts(parseFloat(e.target.value) || 0)}
+                        placeholder="13000"
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Selling Costs:</span>
-                      <span>{formatCurrency(results.details.sellingCosts)}</span>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="flipTimeMonths">Time to Flip (Months)</Label>
+                      <Input
+                        id="flipTimeMonths"
+                        type="number"
+                        value={flipTimeMonths}
+                        onChange={(e) => setFlipTimeMonths(parseFloat(e.target.value) || 0)}
+                        placeholder="6"
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Net Sale Proceeds:</span>
-                      <span>{formatCurrency(results.details.netSaleProceeds)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Net Profit:</span>
-                      <span className="text-green-600">{formatCurrency(results.details.profit)}</span>
-                    </div>
-                  </div>
+                  </>
                 )}
                 
+                {/* BRRRR and Rental common inputs */}
+                {(activeStrategy === 'brrrr' || activeStrategy === 'rental') && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="downPaymentPercent">Down Payment (%)</Label>
+                      <Input
+                        id="downPaymentPercent"
+                        type="number"
+                        value={downPaymentPercent}
+                        onChange={(e) => setDownPaymentPercent(parseFloat(e.target.value) || 0)}
+                        placeholder="20"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="interestRate">Interest Rate (%)</Label>
+                      <Input
+                        id="interestRate"
+                        type="number"
+                        step="0.125"
+                        value={interestRate}
+                        onChange={(e) => setInterestRate(parseFloat(e.target.value) || 0)}
+                        placeholder="5.5"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="holdingPeriodYears">Holding Period (Years)</Label>
+                      <Input
+                        id="holdingPeriodYears"
+                        type="number"
+                        value={holdingPeriodYears}
+                        onChange={(e) => setHoldingPeriodYears(parseFloat(e.target.value) || 0)}
+                        placeholder="5"
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {/* BRRRR-specific inputs */}
                 {activeStrategy === 'brrrr' && (
                   <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Initial Cash Invested:</span>
-                      <span>{formatCurrency(results.details.initialCash)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Refinance Amount:</span>
-                      <span>{formatCurrency(results.details.refinanceAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Cash Out Amount:</span>
-                      <span>{formatCurrency(results.details.cashOutAmount)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Actual Cash Invested:</span>
-                      <span>{formatCurrency(results.details.actualCashInvested)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Monthly Cash Flow:</span>
-                      <span className={results.details.monthlyCashFlow >= 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(results.details.monthlyCashFlow)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Exit Price (Year {results.details.exitYear}):</span>
-                      <span>{formatCurrency(results.details.exitPrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Cash on Cash Return:</span>
-                      <span>{formatPercent(results.details.cashOnCashReturn)}</span>
-                    </div>
+                    <Label htmlFor="refinanceLtv">Refinance LTV (%)</Label>
+                    <Input
+                      id="refinanceLtv"
+                      type="number"
+                      value={refinanceLtv}
+                      onChange={(e) => setRefinanceLtv(parseFloat(e.target.value) || 0)}
+                      placeholder="75"
+                    />
                   </div>
                 )}
                 
-                {activeStrategy === 'rental' && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Initial Investment:</span>
-                      <span>{formatCurrency(results.details.initialInvestment)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Monthly Income:</span>
-                      <span>{formatCurrency(results.details.monthlyRent)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Monthly Expenses:</span>
-                      <span>{formatCurrency(results.details.monthlyExpenses)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Monthly Cash Flow:</span>
-                      <span className={results.details.monthlyCashFlow >= 0 ? "text-green-600" : "text-red-600"}>
-                        {formatCurrency(results.details.monthlyCashFlow)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Exit Price (Year {results.details.exitYear}):</span>
-                      <span>{formatCurrency(results.details.exitPrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Cash on Cash Return:</span>
-                      <span>{formatPercent(results.details.cashOnCashReturn)}</span>
-                    </div>
-                  </div>
-                )}
-                
-                {activeStrategy === 'wholesale' && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Purchase Contract Price:</span>
-                      <span>{formatCurrency(purchasePrice)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>70% of ARV minus Repairs:</span>
-                      <span>{formatCurrency(results.details.wholesaleValue)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span>Earnest Money Deposit:</span>
-                      <span>{formatCurrency(results.details.earnestMoney)}</span>
-                    </div>
-                    <div className="flex justify-between text-sm font-medium">
-                      <span>Assignment Fee:</span>
-                      <span className="text-green-600">{formatCurrency(results.details.assignmentFee)}</span>
-                    </div>
-                  </div>
-                )}
+                {/* Wholesale doesn't need extra inputs */}
               </div>
             </div>
-          )}
-        </Tabs>
-      </CardContent>
-      
-      <CardFooter className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={calculateResults}
-          disabled={isCalculating}
-        >
-          Recalculate
-        </Button>
+            
+            {/* Results display */}
+            {results && (
+              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+                <h3 className="font-medium mb-4">
+                  {results.strategy} Results
+                </h3>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-white p-3 rounded-md border shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">Total ROI</p>
+                    <p className="text-lg font-bold text-blue-600">{formatPercent(results.roi)}</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded-md border shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">Profit</p>
+                    <p className="text-lg font-bold text-green-600">{formatCurrency(results.profitAmount)}</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded-md border shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">Cash Required</p>
+                    <p className="text-lg font-bold">{formatCurrency(results.cashRequired)}</p>
+                  </div>
+                  
+                  <div className="bg-white p-3 rounded-md border shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">Timeframe</p>
+                    <p className="text-lg font-bold">
+                      {results.timeframe < 12 
+                        ? `${results.timeframe} months` 
+                        : `${(results.timeframe / 12).toFixed(1)} years`}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {/* Strategy-specific details */}
+                  {activeStrategy === 'flip' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Total Investment:</span>
+                        <span>{formatCurrency(results.details.totalInvestment)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Sale Price (ARV):</span>
+                        <span>{formatCurrency(results.details.salePrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Selling Costs:</span>
+                        <span>{formatCurrency(results.details.sellingCosts)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Net Sale Proceeds:</span>
+                        <span>{formatCurrency(results.details.netSaleProceeds)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Net Profit:</span>
+                        <span className="text-green-600">{formatCurrency(results.details.profit)}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeStrategy === 'brrrr' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Initial Cash Invested:</span>
+                        <span>{formatCurrency(results.details.initialCash)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Refinance Amount:</span>
+                        <span>{formatCurrency(results.details.refinanceAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Cash Out Amount:</span>
+                        <span>{formatCurrency(results.details.cashOutAmount)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Actual Cash Invested:</span>
+                        <span>{formatCurrency(results.details.actualCashInvested)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Monthly Cash Flow:</span>
+                        <span className={results.details.monthlyCashFlow >= 0 ? "text-green-600" : "text-red-600"}>
+                          {formatCurrency(results.details.monthlyCashFlow)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Exit Price (Year {results.details.exitYear}):</span>
+                        <span>{formatCurrency(results.details.exitPrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Cash on Cash Return:</span>
+                        <span>{formatPercent(results.details.cashOnCashReturn)}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeStrategy === 'rental' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Initial Investment:</span>
+                        <span>{formatCurrency(results.details.initialInvestment)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Monthly Income:</span>
+                        <span>{formatCurrency(results.details.monthlyRent)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Monthly Expenses:</span>
+                        <span>{formatCurrency(results.details.monthlyExpenses)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Monthly Cash Flow:</span>
+                        <span className={results.details.monthlyCashFlow >= 0 ? "text-green-600" : "text-red-600"}>
+                          {formatCurrency(results.details.monthlyCashFlow)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Exit Price (Year {results.details.exitYear}):</span>
+                        <span>{formatCurrency(results.details.exitPrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Cash on Cash Return:</span>
+                        <span>{formatPercent(results.details.cashOnCashReturn)}</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {activeStrategy === 'wholesale' && (
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span>Purchase Contract Price:</span>
+                        <span>{formatCurrency(purchasePrice)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>70% of ARV minus Repairs:</span>
+                        <span>{formatCurrency(results.details.wholesaleValue)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Earnest Money Deposit:</span>
+                        <span>{formatCurrency(results.details.earnestMoney)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm font-medium">
+                        <span>Assignment Fee:</span>
+                        <span className="text-green-600">{formatCurrency(results.details.assignmentFee)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </Tabs>
+        </CardContent>
         
-        {results && onSaveResults && (
-          <Button onClick={handleSaveResults}>
-            Save Results
+        <CardFooter className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={calculateResults}
+            disabled={isCalculating}
+          >
+            Recalculate
           </Button>
-        )}
-      </CardFooter>
-    </Card>
+          
+          {results && onSaveResults && (
+            <Button onClick={handleSaveResults}>
+              Save Results
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+    </div>
   );
 } 

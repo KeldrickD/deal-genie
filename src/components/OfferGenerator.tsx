@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardContent, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,13 +14,15 @@ import { formatCurrency } from '@/lib/utils';
 import { StructuredAnalysis } from '@/app/ai/actions';
 import { generateOfferTermsAction } from '@/app/ai/actions';
 import { useAuthContext } from '@/components/AuthProvider';
+import { getPropertyDetails } from '@/lib/attom';
 
 interface OfferGeneratorProps {
   dealData?: any; // The deal data if coming from a specific deal
   analysisData?: StructuredAnalysis | null; // Analysis data if available
+  address?: string; // Optional address
 }
 
-export default function OfferGenerator({ dealData, analysisData }: OfferGeneratorProps) {
+export default function OfferGenerator({ dealData, analysisData, address }: OfferGeneratorProps) {
   const { user } = useAuthContext();
   const [activeTab, setActiveTab] = useState('generate');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -47,6 +49,14 @@ export default function OfferGenerator({ dealData, analysisData }: OfferGenerato
   
   // References for PDF generation
   const pdfContainerRef = useRef<HTMLDivElement>(null);
+  
+  const [attomData, setAttomData] = useState<any>(null);
+  
+  useEffect(() => {
+    if (address) {
+      getPropertyDetails(address).then(data => setAttomData(data?.property || data)).catch(() => setAttomData(null));
+    }
+  }, [address]);
   
   function getDefaultClosingDate() {
     const date = new Date();
@@ -227,6 +237,23 @@ ${offer.contacts.buyer.email}`;
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-6">Genie Offer Engine</h1>
+      
+      {/* Attom Property Details Section */}
+      {attomData && (
+        <div className="mb-4 p-4 border rounded bg-gray-50">
+          <h3 className="font-bold mb-2">Property Details (Attom)</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div><b>Address:</b> {attomData.address || address}</div>
+            <div><b>Beds:</b> {attomData.bedrooms}</div>
+            <div><b>Baths:</b> {attomData.bathrooms}</div>
+            <div><b>Sqft:</b> {attomData.sqft}</div>
+            <div><b>Year Built:</b> {attomData.yearBuilt}</div>
+            <div><b>Last Sale Price:</b> {attomData.lastSaleAmount}</div>
+            <div><b>Lot Size:</b> {attomData.lotSize}</div>
+            <div><b>Type:</b> {attomData.type}</div>
+          </div>
+        </div>
+      )}
       
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">

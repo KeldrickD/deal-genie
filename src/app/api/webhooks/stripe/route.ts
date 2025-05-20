@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/utils/supabase/server';
 import { sendEmail } from '@/lib/sendgrid';
+import { handleCheckoutSessionCompleted } from './checkout-handler';
 
 // Initialize Stripe with your secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -96,69 +97,13 @@ export async function POST(request: NextRequest) {
     // Handle specific Stripe events
     switch (event.type) {
       case 'checkout.session.completed': {
-        const checkoutSession = event.data.object as Stripe.Checkout.Session;
+        // Handle checkout completion
+        const result = await handleCheckoutSessionCompleted(event);
         
-        // Extract user ID from client_reference_id
-        const userId = checkoutSession.client_reference_id;
+        if (!result.success) {
+          console.error('Error handling checkout.session.completed:', result.error);
+        }
         
-        if (!userId) {
-          console.error('No user ID found in checkout session');
-          return NextResponse.json({ error: 'Missing user ID' }, { status: 400 });
-        }
-
-        // Get subscription details
-        if (checkoutSession.subscription && typeof checkoutSession.subscription === 'string') {
-          const subscription = await stripe.subscriptions.retrieve(checkoutSession.subscription);
-          
-          // Access the fields we need using type assertion to bypass TypeScript restrictions
-          const stripeSubscription = subscription as unknown as {
-            id: string;
-            status: string;
-            items: { data: [{ price: { id: string } }] };
-            trial_end: number | null;
-            current_period_end: number;
-            cancel_at_period_end: boolean;
-          };
-          
-          // Format dates for database
-          const trialEndDate = formatDate(stripeSubscription.trial_end);
-          const periodEndDate = formatDate(stripeSubscription.current_period_end);
-          
-          // Ensure period end date is never null
-          if (!periodEndDate) {
-            console.error('Missing required current_period_end');
-            return NextResponse.json({ error: 'Invalid subscription data' }, { status: 400 });
-          }
-          
-          // Store subscription in database
-          const { error } = await supabase
-            .from('user_subscriptions')
-            .upsert({
-              user_id: userId,
-              stripe_customer_id: checkoutSession.customer as string,
-              stripe_subscription_id: stripeSubscription.id,
-              plan_id: stripeSubscription.items.data[0].price.id,
-              status: stripeSubscription.status,
-              trial_end: trialEndDate,
-              current_period_end: periodEndDate,
-              cancel_at_period_end: stripeSubscription.cancel_at_period_end,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            });
-
-          if (error) {
-            console.error('Error storing subscription in database:', error);
-            return NextResponse.json({ error: 'Database error' }, { status: 500 });
-          }
-          
-          // Update user subscription tier in profiles table
-          await updateUserSubscriptionTier(userId, stripeSubscription.status);
-          
-          console.log('New subscription created and stored', {
-            userId,
-            stripeSubscriptionId: stripeSubscription.id,
-          });
-        }
         break;
       }
 

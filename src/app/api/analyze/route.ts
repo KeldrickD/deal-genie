@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
 import rentcast from '@/lib/rentcast';
 import { analysisCache } from '@/lib/cache';
+import { getPropertyDetails } from '@/lib/attom';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -9,11 +10,13 @@ const openai = new OpenAI({
 
 // Define response types
 interface AnalysisResponse {
+  attomData?: any;
   rentalData: any;
   comps: string;
   analysis: string;
   cached?: boolean;
   errors?: {
+    attom?: string;
     rental?: string;
     comps?: string;
     analysis?: string;
@@ -44,25 +47,32 @@ export async function POST(request: Request) {
 
     console.log(`Cache miss for address: ${address}`);
     const response: AnalysisResponse = {
+      attomData: {},
       rentalData: {},
       comps: "",
       analysis: "",
       errors: {}
     };
 
-    // 1. Fetch rental data from RentCast
+    // 1. Fetch property details from Attom
+    let attomData = null;
+    try {
+      attomData = await getPropertyDetails(address);
+      response.attomData = attomData?.property || attomData;
+    } catch (err: any) {
+      response.errors!.attom = err.message || 'Error fetching property details from Attom';
+    }
+
+    // 2. Fetch rental data from RentCast (fallback or supplement)
     const rentalData = await rentcast.getRentalEstimate(address);
     response.rentalData = rentalData;
-    
-    // Track error state
     if (rentalData.error) {
       response.errors!.rental = rentalData.error;
     }
 
     let compsText = "";
-    
     try {
-      // 2. Use GPT-4o with web-search tool to pull recent comps
+      // 3. Use GPT-4o with web-search tool to pull recent comps
       const webSearchResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         tools: [{ type: "function", function: { name: "web_search", description: "Search the web" } }],
@@ -74,23 +84,16 @@ export async function POST(request: Request) {
           },
         ],
       });
-
-      // Process the tool calls if any were made
       compsText = webSearchResponse.choices[0].message.content || 
         "No comparable properties found";
-      
       response.comps = compsText;
-      
-      // Check if we got actual comps or an error/empty result
       if (compsText.toLowerCase().includes("no comparable") || 
           compsText.toLowerCase().includes("unable to find") ||
           compsText.toLowerCase().includes("could not find")) {
         response.errors!.comps = "No comparable properties found for this address";
       }
-
-      // 3. Send both data sources into a single GPT-4 call for final analysis
-      const analysisPrompt = generateAnalysisPrompt(rentalData, compsText, !!response.errors?.rental, !!response.errors?.comps);
-      
+      // 4. Send all data sources into a single GPT-4 call for final analysis
+      const analysisPrompt = generateAnalysisPrompt(attomData, rentalData, compsText, !!response.errors?.attom, !!response.errors?.rental, !!response.errors?.comps);
       const analysisResponse = await openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
@@ -98,21 +101,18 @@ export async function POST(request: Request) {
             role: "system",
             content: analysisPrompt
           },
+          { role: "user", content: `Attom Data:\n${JSON.stringify(attomData)}\n` },
           { role: "user", content: `Rental Data:\n${JSON.stringify(rentalData)}\n` },
           { role: "user", content: `Comps:\n${compsText}\n` },
         ],
       });
-
       response.analysis = analysisResponse.choices[0].message.content || "";
-      
     } catch (error: any) {
       console.error("GPT-4o web search error:", error);
-      // Fallback if web search fails
       response.errors!.comps = "Error retrieving comparable properties";
       response.comps = "Web search for comps unavailable";
-      
       try {
-        response.analysis = await getAnalysisWithoutWebSearch(rentalData, address);
+        response.analysis = await getAnalysisWithoutWebSearch(attomData, rentalData, address);
       } catch (analysisError) {
         console.error("Fallback analysis error:", analysisError);
         response.errors!.analysis = "Error generating property analysis";
@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     }
 
     // Only cache successful responses or partial responses with useful data
-    if (response.analysis && (response.rentalData.rent > 0 || response.comps.length > 30)) {
+    if (response.analysis && (response.rentalData.rent > 0 || response.comps.length > 30 || response.attomData)) {
       analysisCache.set(address, response);
     }
 
@@ -133,7 +133,7 @@ export async function POST(request: Request) {
 }
 
 // Generate analysis prompt based on available data
-function generateAnalysisPrompt(rentalData: any, compsText: string, hasRentalError: boolean, hasCompsError: boolean): string {
+function generateAnalysisPrompt(attomData: any, rentalData: any, compsText: string, hasAttomError: boolean, hasRentalError: boolean, hasCompsError: boolean): string {
   const basePrompt = `
 You are a real-estate AI analyst. 
 Based on the available data, calculate:
@@ -143,49 +143,34 @@ Based on the available data, calculate:
   4. 12-month cash-on-cash ROI if rented  
   5. Go/No-Go decision with one-sentence justification
 `;
-
-  if (hasRentalError && hasCompsError) {
+  if (hasAttomError && hasRentalError && hasCompsError) {
     return basePrompt + `
-IMPORTANT: Both rental data and comparable sales are limited or unavailable.
-Please note this in your analysis and provide ranges rather than specific numbers.
-Make conservative estimates and clearly indicate the uncertainty.
-`;
-  } else if (hasRentalError) {
+IMPORTANT: All data sources are limited or unavailable.\nPlease note this in your analysis and provide ranges rather than specific numbers.\nMake conservative estimates and clearly indicate the uncertainty.\n`;
+  } else if (hasAttomError && hasRentalError) {
     return basePrompt + `
-IMPORTANT: Rental data is unavailable or limited.
-Focus on the comparable sales data to estimate property values.
-For rental calculations, use typical rent-to-value ratios for this type of property.
-`;
-  } else if (hasCompsError) {
+IMPORTANT: Attom and rental data are unavailable or limited.\nFocus on the comparable sales data to estimate property values.\nFor rental calculations, use typical rent-to-value ratios for this type of property.\n`;
+  } else if (hasAttomError && hasCompsError) {
     return basePrompt + `
-IMPORTANT: Comparable sales data is unavailable or limited.
-Focus on rental data to estimate property values using income approach.
-Use typical cap rates and multipliers for this type of property.
-`;
+IMPORTANT: Attom and comparable sales data are unavailable or limited.\nFocus on rental data to estimate property values using income approach.\nUse typical cap rates and multipliers for this type of property.\n`;
+  } else if (hasRentalError && hasCompsError) {
+    return basePrompt + `
+IMPORTANT: Rental and comparable sales data are unavailable or limited.\nFocus on Attom property data to estimate values.\n`;
   }
-
   return basePrompt;
 }
 
 // Fallback analysis when web search isn't available
-async function getAnalysisWithoutWebSearch(rentalData: any, address: string) {
+async function getAnalysisWithoutWebSearch(attomData: any, rentalData: any, address: string) {
   const analysisResponse = await openai.chat.completions.create({
     model: "gpt-4o",
     messages: [
       {
         role: "system",
-        content: `You are a real-estate AI analyst. I'm missing comparable sales data, but I have some rental estimates for ${address}. 
-        Based on just the rental data, provide a general analysis of this property's investment potential. 
-        Estimate ARV using income approach and typical cap rates for residential properties.
-        Include:
-        1. Estimated property value range
-        2. Estimated monthly cash flow (if purchased at estimated value)
-        3. Potential ROI range
-        4. Whether this seems like a worthwhile investment`
+        content: `You are a real-estate AI analyst. I'm missing comparable sales data, but I have some property and rental estimates for ${address}. \nBased on just the Attom and rental data, provide a general analysis of this property's investment potential. \nEstimate ARV using income approach and typical cap rates for residential properties.\nInclude:\n1. Estimated property value range\n2. Estimated monthly cash flow (if purchased at estimated value)\n3. Potential ROI range\n4. Whether this seems like a worthwhile investment`
       },
+      { role: "user", content: `Attom Data:\n${JSON.stringify(attomData)}\n` },
       { role: "user", content: `Rental Data:\n${JSON.stringify(rentalData)}\n` },
     ],
   });
-
   return analysisResponse.choices[0].message.content || "Unable to analyze property with limited data.";
 } 

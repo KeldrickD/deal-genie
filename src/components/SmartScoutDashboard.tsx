@@ -13,6 +13,13 @@ import { Loader2, MapPin, TrendingUp, Bell, Calendar, ArrowUpRight, ArrowDownRig
 import { toast } from 'sonner';
 import { useAuthContext } from '@/components/AuthProvider';
 import { formatCurrency } from '@/lib/utils';
+import { calculateGenieDealScore, getGenieDealScoreBreakdown } from '@/app/ai/actions';
+import PropertyHistoryTimeline from './PropertyHistoryTimeline';
+import FeedbackWidget from './FeedbackWidget';
+import RadarChart from './RadarChart';
+import Sparkline from './Sparkline';
+import TopRatedLeads from './TopRatedLeads';
+import PersonalizedRecommendations from './PersonalizedRecommendations';
 
 // Mock market data for development
 const MOCK_MARKET_DATA = [
@@ -496,39 +503,62 @@ export default function SmartScoutDashboard() {
             </Card>
           </div>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Alerts</CardTitle>
-              <CardDescription>
-                New potential deals in your tracked markets
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {alerts.map(alert => (
-                  <div key={alert.id} className="flex flex-col p-3 border rounded-lg">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <h3 className="font-medium">{alert.address}</h3>
-                        <p className="text-sm text-muted-foreground">ZIP: {alert.zipCode}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Recent Alerts */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Alerts</CardTitle>
+                <CardDescription>
+                  New potential deals in your tracked markets
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {alerts.map(alert => (
+                    <div key={alert.id} className="flex flex-col p-3 border rounded-lg">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{alert.address}</h3>
+                          <p className="text-sm text-muted-foreground">ZIP: {alert.zipCode}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">{alert.price}</p>
+                          <p className="text-sm text-green-600">{alert.discount}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold">{alert.price}</p>
-                        <p className="text-sm text-green-600">{alert.discount}</p>
+                      <div className="flex justify-between mt-2 text-sm">
+                        <span>Potential ROI: <span className="font-medium text-blue-600">{alert.roi}</span></span>
+                        <span className="text-muted-foreground">{alert.date}</span>
                       </div>
                     </div>
-                    <div className="flex justify-between mt-2 text-sm">
-                      <span>Potential ROI: <span className="font-medium text-blue-600">{alert.roi}</span></span>
-                      <span className="text-muted-foreground">{alert.date}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button variant="outline" className="w-full">View All Alerts</Button>
-            </CardFooter>
-          </Card>
+                  ))}
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button variant="outline" className="w-full">View All Alerts</Button>
+              </CardFooter>
+            </Card>
+            
+            {/* Top-Rated Leads */}
+            <TopRatedLeads 
+              limit={3} 
+              onSelectLead={(leadId) => {
+                // In a real implementation, this would open the lead detail view
+                toast.success(`Viewing lead details for ${leadId}`);
+              }}
+            />
+          </div>
+          
+          {/* Personalized Recommendations */}
+          <div className="mt-2">
+            <PersonalizedRecommendations 
+              limit={3}
+              onViewProperty={(propertyId) => {
+                // In a real implementation, this would open the property detail view
+                toast.success(`Viewing property details for ${propertyId}`);
+              }}
+            />
+          </div>
         </TabsContent>
         
         <TabsContent value="alerts" className="space-y-4 mt-4">
@@ -541,43 +571,99 @@ export default function SmartScoutDashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {alerts.length > 0 ? (
-                  alerts.map(alert => (
-                    <div key={alert.id} className="flex flex-col p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                {properties.map((property, idx) => {
+                  // Type guard for attomData
+                  const attomLike = (property as any).attomData ? (property as any).attomData : property;
+                  const dealScore = calculateGenieDealScore(attomLike);
+                  // Visual Deal Score Bar
+                  let color = 'bg-red-500';
+                  let label = 'Poor';
+                  if (dealScore >= 81) { color = 'bg-green-500'; label = 'Great'; }
+                  else if (dealScore >= 61) { color = 'bg-yellow-500'; label = 'Average'; }
+                  
+                  // Generate mock trend data if real data isn't available
+                  const equityTrend = attomLike.equityHistory || 
+                    [
+                      property.price * 0.90, 
+                      property.price * 0.92, 
+                      property.price * 0.95, 
+                      property.price * 0.97, 
+                      property.price * 0.99, 
+                      property.price
+                    ];
+                  
+                  // Get score breakdown for radar chart
+                  const scoreBreakdown = getGenieDealScoreBreakdown(attomLike);
+                  
+                  return (
+                    <div key={idx} className="mb-6 p-4 border rounded bg-white">
+                      {/* Genie Deal Score */}
+                      <div className="mb-2 text-blue-600 font-bold">Genie Deal Score™: {dealScore}/100</div>
+                      {/* Deal Score Gradient Bar */}
+                      <div className="w-full bg-gray-200 rounded-full h-2 relative mb-2">
+                        <div 
+                          className={`h-2 rounded-full transition-all duration-300 ${color}`}
+                          style={{ width: `${dealScore}%` }}
+                        ></div>
+                        <div className="absolute top-0 left-0 h-2 w-full rounded-full pointer-events-none" style={{ background: 'linear-gradient(90deg, #ef4444 0%, #f59e42 60%, #22c55e 100%)', opacity: 0.3 }}></div>
+                      </div>
+                      <div className="text-xs font-semibold mb-2 text-right {color}">{label}</div>
+                      
+                      {/* Visualization area - split into 2 columns for radar chart and sparkline */}
+                      <div className="grid grid-cols-2 gap-2 mb-4">
+                        {/* Radar Chart */}
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 mb-1">Score Breakdown</h5>
+                          <RadarChart data={scoreBreakdown} size="sm" />
+                        </div>
+                        
+                        {/* Sparkline */}
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 mb-1">Value Trend</h5>
+                          <div className="flex justify-center items-center h-full">
+                            <Sparkline 
+                              data={equityTrend} 
+                              height={60} 
+                              width={120} 
+                              showSpots={true}
+                              showReferenceLine={true} 
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Property History Timeline */}
+                      {attomLike.address && (
+                        <PropertyHistoryTimeline address={attomLike.address} />
+                      )}
+                      {/* Feedback Widget */}
+                      <FeedbackWidget propertyId={property.id} />
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-medium">{alert.address}</h3>
-                          <p className="text-sm text-muted-foreground">ZIP: {alert.zipCode}</p>
+                          <h3 className="font-medium">{property.address}</h3>
+                          <p className="text-sm text-muted-foreground">ZIP: {property.zipCode}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold">{alert.price}</p>
-                          <p className="text-sm text-green-600">{alert.discount}</p>
+                          <p className="font-bold">{formatCurrency(property.price)}</p>
+                          <p className="text-sm text-green-600">{property.priceDropPercent}% drop</p>
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2 mt-3">
                         <div className="text-sm">
-                          <p className="text-muted-foreground">ROI</p>
-                          <p className="font-medium">{alert.roi}</p>
+                          <p className="text-muted-foreground">Potential ROI</p>
+                          <p className="font-medium">{property.potentialROI}%</p>
                         </div>
                         <div className="text-sm">
-                          <p className="text-muted-foreground">Date</p>
-                          <p className="font-medium">{alert.date}</p>
+                          <p className="text-muted-foreground">Deal Score</p>
+                          <p className="font-medium">{property.dealScore}</p>
                         </div>
                         <div className="flex justify-end items-end">
                           <Button size="sm">View Details</Button>
                         </div>
                       </div>
                     </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
-                    <h3 className="mt-2 text-lg font-medium">No alerts</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Add more markets to receive alerts
-                    </p>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

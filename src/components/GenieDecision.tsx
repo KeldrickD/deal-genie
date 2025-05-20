@@ -89,6 +89,31 @@ export default function GenieDecision({
   const renderDetails = () => {
     if (!showDetails) return null;
     
+    // Deal Score Gradient Bar
+    const renderDealScoreBar = () => {
+      if (dealScore === undefined) return null;
+      let color = 'bg-red-500';
+      let label = 'Poor';
+      if (dealScore >= 81) { color = 'bg-green-500'; label = 'Great'; }
+      else if (dealScore >= 61) { color = 'bg-yellow-500'; label = 'Average'; }
+      return (
+        <div className="mt-2">
+          <div className="flex justify-between text-xs mb-1">
+            <span>Deal Score</span>
+            <span>{dealScore}/100 <span className={`ml-2 font-semibold ${color}`}>{label}</span></span>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2 relative">
+            <div 
+              className={`h-2 rounded-full transition-all duration-300 ${color}`}
+              style={{ width: `${dealScore}%` }}
+            ></div>
+            {/* Gradient overlay for visual effect */}
+            <div className="absolute top-0 left-0 h-2 w-full rounded-full pointer-events-none" style={{ background: 'linear-gradient(90deg, #ef4444 0%, #f59e42 60%, #22c55e 100%)', opacity: 0.3 }}></div>
+          </div>
+        </div>
+      );
+    };
+
     return (
       <div className="mt-3 pt-3 border-t border-gray-200">
         {mao !== null && (
@@ -108,19 +133,7 @@ export default function GenieDecision({
             </span>
           </div>
         )}
-        
-        {dealScore !== undefined && (
-          <div className="flex justify-between text-sm">
-            <span>Deal Score:</span>
-            <span className={`font-medium ${
-              dealScore >= 80 ? 'text-green-600' : 
-              dealScore >= 60 ? 'text-yellow-600' : 
-              'text-red-600'
-            }`}>
-              {dealScore}/100
-            </span>
-          </div>
-        )}
+        {renderDealScoreBar()}
       </div>
     );
   };

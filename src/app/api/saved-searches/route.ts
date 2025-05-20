@@ -48,6 +48,58 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Get user's subscription tier and admin status
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('subscription_tier, is_admin')
+      .eq('id', session.user.id)
+      .single();
+    if (profileError) {
+      console.error('Error fetching user profile:', profileError);
+      return NextResponse.json({ error: 'Failed to verify user profile' }, { status: 500 });
+    }
+    // If admin, skip limit check
+    if (profile && profile.is_admin) {
+      // Parse request body
+      const searchData = await req.json();
+      // Validate required fields
+      if (!searchData.name || !searchData.city || !searchData.sources || searchData.sources.length === 0) {
+        return NextResponse.json(
+          { error: 'Missing required fields (name, city, sources)' },
+          { status: 400 }
+        );
+      }
+      // Insert the new saved search
+      const { data: newSearch, error } = await supabase
+        .from('saved_searches')
+        .insert({
+          user_id: session.user.id,
+          name: searchData.name,
+          city: searchData.city,
+          sources: searchData.sources,
+          keywords: searchData.keywords || null,
+          days_on_market: searchData.daysOnMarket || null,
+          price_min: searchData.priceMin || null,
+          price_max: searchData.priceMax || null,
+          email_alert: searchData.emailAlert || false,
+          enabled: true
+        })
+        .select()
+        .single();
+      if (error) {
+        console.error('Error creating saved search:', error);
+        return NextResponse.json({ error: 'Failed to create saved search' }, { status: 500 });
+      }
+      // Log creation
+      await supabase.from('usage_logs').insert({
+        user_id: session.user.id,
+        feature: 'saved_search_create',
+        count: 1,
+        metadata: { search_id: newSearch.id }
+      });
+      return NextResponse.json({ search: newSearch }, { status: 201 });
+    }
+    
     // Get user's subscription tier
     const { data: user, error: userError } = await supabase
       .from('users')

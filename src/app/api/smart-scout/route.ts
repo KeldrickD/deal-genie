@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
 import { getSession } from '@/lib/auth';
 import type { Database } from '@/types/supabase';
+import { getPropertyDetails } from '@/lib/attom';
 
 // Mock market data for development
 const MOCK_MARKET_DATA = [
@@ -172,91 +173,42 @@ export async function GET(request: Request) {
     
     const { searchParams } = new URL(request.url);
     const zipCodes = searchParams.get('zipCodes')?.split(',') || [];
-    
-    // Create Supabase client using SSR approach
-    const cookieStore = cookies();
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            try {
-              cookieStore.set(name, value, options);
-            } catch (error) {
-              console.error('Failed to set cookie:', error);
-            }
-          },
-          remove(name, options) {
-            try {
-              cookieStore.set(name, '', { ...options, maxAge: 0 });
-            } catch (error) {
-              console.error('Failed to remove cookie:', error);
-            }
-          },
-        },
-      }
-    );
-    
-    // In a real implementation, fetch from database or external API
-    // For now, use mock data and filter by zip codes if provided
-    let filteredMarkets = [...MOCK_MARKET_DATA];
-    let filteredProperties = [...MOCK_PROPERTIES];
-    
+
+    // Fetch properties from Attom API for each zip code
+    let attomProperties: any[] = [];
     if (zipCodes.length > 0) {
-      filteredMarkets = filteredMarkets.filter(market => 
-        zipCodes.includes(market.zipCode)
-      );
-      
-      filteredProperties = filteredProperties.filter(property => 
-        zipCodes.includes(property.zipCode)
-      );
-    }
-    
-    // Fetch user preferences to apply personalized filtering
-    const { data: profileData } = await supabase
-      .from('profiles')
-      .select('smart_scout_prefs')
-      .eq('id', session.user.id)
-      .single();
-      
-    const userPrefs = profileData?.smart_scout_prefs;
-    
-    // Apply user preferences if available
-    if (userPrefs) {
-      // Filter properties based on user preferences
-      if (userPrefs.minDealScore) {
-        filteredProperties = filteredProperties.filter(
-          property => property.dealScore >= userPrefs.minDealScore
-        );
+      for (const zip of zipCodes) {
+        try {
+          const attomResult = await getPropertyDetails(zip);
+          if (attomResult?.property) {
+            attomProperties.push(attomResult.property);
+          } else if (Array.isArray(attomResult?.properties)) {
+            attomProperties.push(...attomResult.properties);
+          }
+        } catch (err) {
+          console.error('Attom API error for zip', zip, err);
+        }
       }
-      
-      if (userPrefs.minROI) {
-        filteredProperties = filteredProperties.filter(
-          property => property.potentialROI >= userPrefs.minROI
-        );
-      }
-      
-      if (userPrefs.maxDaysOnMarket) {
-        filteredProperties = filteredProperties.filter(
-          property => property.daysOnMarket <= userPrefs.maxDaysOnMarket
-        );
-      }
-      
-      if (userPrefs.minPriceDrop) {
-        filteredProperties = filteredProperties.filter(
-          property => property.priceDropPercent >= userPrefs.minPriceDrop
-        );
+    } else {
+      try {
+        const attomResult = await getPropertyDetails('32789');
+        if (attomResult?.property) {
+          attomProperties.push(attomResult.property);
+        } else if (Array.isArray(attomResult?.properties)) {
+          attomProperties.push(...attomResult.properties);
+        }
+      } catch (err) {
+        console.error('Attom API error for default zip', err);
       }
     }
 
+    // Skipping user preferences filtering for now (no Supabase)
+    // If you want to add user preferences, fetch from another API or pass in request
+
     return NextResponse.json({ 
-      markets: filteredMarkets,
-      properties: filteredProperties,
-      preferences: userPrefs || null
+      markets: MOCK_MARKET_DATA, // Optionally update with Attom market data
+      properties: attomProperties,
+      preferences: null
     });
   } catch (error: any) {
     console.error('Error in Smart Scout API:', error);
@@ -280,51 +232,11 @@ export async function POST(request: Request) {
     if (!preferences) {
       return NextResponse.json({ error: 'Preferences data is required' }, { status: 400 });
     }
-    
-    // Create Supabase client using SSR approach
-    const cookieStore = cookies();
-    const supabase = createServerClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name) {
-            return cookieStore.get(name)?.value;
-          },
-          set(name, value, options) {
-            try {
-              cookieStore.set(name, value, options);
-            } catch (error) {
-              console.error('Failed to set cookie:', error);
-            }
-          },
-          remove(name, options) {
-            try {
-              cookieStore.set(name, '', { ...options, maxAge: 0 });
-            } catch (error) {
-              console.error('Failed to remove cookie:', error);
-            }
-          },
-        },
-      }
-    );
-    
-    // Save user preferences
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        smart_scout_prefs: preferences,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', session.user.id);
-      
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-
+    // Skipping Supabase and cookie logic
+    // In a real implementation, save preferences to a database or user profile
     return NextResponse.json({ 
       success: true,
-      message: 'Smart Scout preferences saved successfully'
+      message: 'Smart Scout preferences saved successfully (not persisted in this demo)'
     });
   } catch (error: any) {
     console.error('Error saving Smart Scout preferences:', error);

@@ -2,6 +2,7 @@
 
 import openai from '@/lib/openai'; // Use default import for openai client
 import { z } from 'zod';
+import { getPropertyDetails } from '@/lib/attom';
 
 // Define expected input data using Zod for validation within the action
 const analysisInputSchema = z.object({
@@ -50,6 +51,7 @@ type BatchAnalysisResultState = {
     results?: Array<{
         address: string;
         analysis: StructuredAnalysis | null;
+        attomData?: any | null;
     }>;
     error?: string | null;
 };
@@ -198,30 +200,40 @@ export async function analyzeBatchProperties(
         const results = await Promise.all(
             addresses.map(async (address) => {
                 try {
+                    // Fetch Attom property details
+                    let attomData = null;
+                    try {
+                        attomData = await getPropertyDetails(address);
+                    } catch (err) {
+                        console.error(`[Batch] Attom API error for ${address}:`, err);
+                    }
+
                     // Create a minimal input for each address
                     const singleInput: AnalysisInput = {
                         address,
                         deal_name: `Analysis of ${address}`,
-                        property_type: null,
-                        purchase_price: null,
+                        property_type: attomData?.property?.type || null,
+                        purchase_price: attomData?.property?.lastSaleAmount || null,
                         arv: null,
                         rehab_cost: null,
                         noi: null,
                         loan_amount: null
                     };
                     
-                    // Generate analysis for this address
+                    // Generate analysis for this address (optionally pass attomData to the prompt if needed)
                     const result = await generateDealAnalysisAction(singleInput);
                     
                     return {
                         address,
-                        analysis: result.structuredAnalysis || null
+                        analysis: result.structuredAnalysis || null,
+                        attomData: attomData?.property || attomData || null
                     };
                 } catch (error) {
                     console.error(`[AI Batch Action] Error analyzing address "${address}":`, error);
                     return {
                         address,
-                        analysis: null
+                        analysis: null,
+                        attomData: null
                     };
                 }
             })
@@ -403,7 +415,7 @@ export async function analyzePropertyWithPreferences(
     }
     
     // Adjust for risk tolerance
-    if (userPreferences.riskTolerance !== undefined) {
+    if (typeof userPreferences.riskTolerance === 'number') {
       // For conservative investors (low risk tolerance), decrease confidence if high repair costs
       if (userPreferences.riskTolerance < 30 && analysis.repairCostHigh > 50000) {
         adjustedAnalysis.confidenceLevel = Math.max(0, adjustedAnalysis.confidenceLevel - 15);
@@ -417,7 +429,7 @@ export async function analyzePropertyWithPreferences(
     }
     
     // Adjust for ROI expectations
-    if (userPreferences.targetRoi !== undefined && analysis.cashOnCashROI < userPreferences.targetRoi) {
+    if (typeof userPreferences.targetRoi === 'number' && analysis.cashOnCashROI < userPreferences.targetRoi) {
       adjustedAnalysis.confidenceLevel = Math.max(0, adjustedAnalysis.confidenceLevel - 10);
       adjustedAnalysis.reasoning += ` The projected ROI falls below your target of ${userPreferences.targetRoi}%.`;
     }
@@ -440,4 +452,244 @@ export async function analyzePropertyWithPreferences(
       error: 'Failed to analyze property with preferences'
     };
   }
+}
+
+// Genie Deal Score™: Weighted scoring using ATTOM fields and Smart Scout
+export function calculateGenieDealScore(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): number {
+    if (!attomData) return 0;
+    // --- Scoring Matrix ---
+    let score = 0;
+    let totalWeight = 0;
+    // Subscores for radar chart
+    const subscores: Record<string, number> = {};
+    // 1. Equity (AVM - Asking Price): 25%
+    let equityScore = 0;
+    if (typeof attomData.equity === 'number') {
+        if (attomData.equity > 150000) equityScore = 25;
+        else if (attomData.equity > 100000) equityScore = 20;
+        else if (attomData.equity > 50000) equityScore = 15;
+        else if (attomData.equity > 0) equityScore = 10;
+        else equityScore = 0;
+    }
+    score += equityScore * 0.25; totalWeight += 0.25;
+    subscores['Equity'] = equityScore;
+    // 2. AVM Accuracy (AVM vs. Market): 10%
+    let avmScore = 0;
+    if (attomData.avm && attomData.price) {
+        const diff = attomData.avm - attomData.price;
+        if (diff > 0.15 * attomData.price) avmScore = 10;
+        else if (diff > 0.05 * attomData.price) avmScore = 7;
+        else if (diff > -0.05 * attomData.price) avmScore = 5;
+        else avmScore = 0;
+    }
+    score += avmScore * 0.10; totalWeight += 0.10;
+    subscores['AVM'] = avmScore;
+    // 3. Year Built: 5%
+    let yearScore = 0;
+    if (attomData.yearBuilt) {
+        if (attomData.yearBuilt >= 1980 && attomData.yearBuilt <= 2015) yearScore = 5;
+        else if (attomData.yearBuilt > 2015) yearScore = 3;
+        else yearScore = 1;
+    }
+    score += yearScore * 0.05; totalWeight += 0.05;
+    subscores['Year'] = yearScore;
+    // 4. Beds/Baths Fit: 5%
+    let bedBathScore = 0;
+    if (attomData.bedrooms && attomData.bathrooms) {
+        if (attomData.bedrooms >= 3 && attomData.bathrooms >= 2) bedBathScore = 5;
+        else if (attomData.bedrooms >= 2 && attomData.bathrooms >= 1) bedBathScore = 3;
+        else bedBathScore = 1;
+    }
+    score += bedBathScore * 0.05; totalWeight += 0.05;
+    subscores['BedsBaths'] = bedBathScore;
+    // 5. Sqft vs. Market Median: 5%
+    let sqftScore = 0;
+    if (attomData.sqft && attomData.marketMedianSqft) {
+        if (attomData.sqft >= attomData.marketMedianSqft) sqftScore = 5;
+        else if (attomData.sqft >= 0.85 * attomData.marketMedianSqft) sqftScore = 3;
+        else sqftScore = 1;
+    } else if (attomData.sqft) {
+        sqftScore = Math.min(attomData.sqft / 500, 5);
+    }
+    score += sqftScore * 0.05; totalWeight += 0.05;
+    subscores['Sqft'] = sqftScore;
+    // 6. Zoning/Use: 5%
+    let zoningScore = 0;
+    if (attomData.zoning && /res/i.test(attomData.zoning)) zoningScore = 5;
+    else if (attomData.zoning) zoningScore = 2;
+    score += zoningScore * 0.05; totalWeight += 0.05;
+    subscores['Zoning'] = zoningScore;
+    // 7. Owner Occupancy: 5%
+    let ownerScore = 0;
+    if (attomData.ownership && !/LLC|Inc|Corp|Trust/i.test(attomData.ownership)) ownerScore = 5;
+    else if (attomData.ownership) ownerScore = 2;
+    score += ownerScore * 0.05; totalWeight += 0.05;
+    subscores['Ownership'] = ownerScore;
+    // 8. Days on Market (DOM): 10%
+    let domScore = 0;
+    if (attomData.daysOnMarket) {
+        if (attomData.daysOnMarket >= 10 && attomData.daysOnMarket <= 45) domScore = 10;
+        else if (attomData.daysOnMarket < 10) domScore = 5;
+        else domScore = 2;
+    }
+    score += domScore * 0.10; totalWeight += 0.10;
+    subscores['DOM'] = domScore;
+    // 9. Price Drop %: 10%
+    let priceDropScore = 0;
+    if (attomData.priceDropPercent) {
+        if (attomData.priceDropPercent >= 5) priceDropScore = 10;
+        else if (attomData.priceDropPercent >= 2) priceDropScore = 7;
+        else priceDropScore = 3;
+    }
+    score += priceDropScore * 0.10; totalWeight += 0.10;
+    subscores['PriceDrop'] = priceDropScore;
+    // 10. Smart Scout Zip Score: 10%
+    let zipScore = 0;
+    if (options?.zipScore !== undefined) zipScore = options.zipScore;
+    else if (attomData.smartScoutZipScore !== undefined) zipScore = attomData.smartScoutZipScore;
+    score += (zipScore / 10) * 0.10; totalWeight += 0.10; // Assume zipScore is 0-100, scale to 0-10
+    subscores['ZipScore'] = zipScore / 10;
+    // 11. School Quality: 5%
+    let schoolScore = 0;
+    if (options?.schoolScore !== undefined) schoolScore = options.schoolScore;
+    else if (attomData.schoolScore !== undefined) schoolScore = attomData.schoolScore;
+    score += (schoolScore / 2) * 0.05; totalWeight += 0.05; // Assume schoolScore is 0-10, scale to 0-5
+    subscores['School'] = schoolScore / 2;
+    // 12. Risk Layers (Flood, Fire, Affordability): 5%
+    let riskScore = 5;
+    if (options?.riskLayers) {
+        if (options.riskLayers.flood && options.riskLayers.flood > 7) riskScore -= 2;
+        if (options.riskLayers.fire && options.riskLayers.fire > 7) riskScore -= 2;
+        if (options.riskLayers.affordability && options.riskLayers.affordability < 3) riskScore -= 1;
+    }
+    score += riskScore * 0.05; totalWeight += 0.05;
+    subscores['Risk'] = riskScore;
+    // --- Location Multiplier ---
+    let locationMultiplier = 1;
+    if (zipScore >= 80) locationMultiplier = 1.1;
+    else if (zipScore >= 60) locationMultiplier = 1.05;
+    // --- Final Score ---
+    let finalScore = (score / totalWeight) * locationMultiplier;
+    // Clamp to 0-100
+    finalScore = Math.max(0, Math.min(100, Math.round(finalScore)));
+    return finalScore;
+}
+
+// Helper: Return subscore breakdown for radar chart
+export function getGenieDealScoreBreakdown(attomData: any, options?: { zipScore?: number; schoolScore?: number; riskLayers?: { flood?: number; fire?: number; affordability?: number } }): Record<string, number> {
+    if (!attomData) return {};
+    
+    // Subscores for radar chart
+    const subscores: Record<string, number> = {};
+    
+    // 1. Equity (AVM - Asking Price): 25%
+    let equityScore = 0;
+    if (typeof attomData.equity === 'number') {
+        if (attomData.equity > 150000) equityScore = 25;
+        else if (attomData.equity > 100000) equityScore = 20;
+        else if (attomData.equity > 50000) equityScore = 15;
+        else if (attomData.equity > 0) equityScore = 10;
+        else equityScore = 0;
+    }
+    subscores['Equity'] = equityScore;
+    
+    // 2. AVM Accuracy (AVM vs. Market): 10%
+    let avmScore = 0;
+    if (attomData.avm && attomData.price) {
+        const diff = attomData.avm - attomData.price;
+        if (diff > 0.15 * attomData.price) avmScore = 10;
+        else if (diff > 0.05 * attomData.price) avmScore = 7;
+        else if (diff > -0.05 * attomData.price) avmScore = 5;
+        else avmScore = 0;
+    }
+    subscores['AVM'] = avmScore;
+    
+    // 3. Year Built: 5%
+    let yearScore = 0;
+    if (attomData.yearBuilt) {
+        if (attomData.yearBuilt >= 1980 && attomData.yearBuilt <= 2015) yearScore = 5;
+        else if (attomData.yearBuilt > 2015) yearScore = 3;
+        else yearScore = 1;
+    }
+    subscores['Year'] = yearScore;
+    
+    // 4. Beds/Baths Fit: 5%
+    let bedBathScore = 0;
+    if (attomData.bedrooms && attomData.bathrooms) {
+        if (attomData.bedrooms >= 3 && attomData.bathrooms >= 2) bedBathScore = 5;
+        else if (attomData.bedrooms >= 2 && attomData.bathrooms >= 1) bedBathScore = 3;
+        else bedBathScore = 1;
+    }
+    subscores['BedsBaths'] = bedBathScore;
+    
+    // 5. Sqft vs. Market Median: 5%
+    let sqftScore = 0;
+    if (attomData.sqft && attomData.marketMedianSqft) {
+        if (attomData.sqft >= attomData.marketMedianSqft) sqftScore = 5;
+        else if (attomData.sqft >= 0.85 * attomData.marketMedianSqft) sqftScore = 3;
+        else sqftScore = 1;
+    } else if (attomData.sqft) {
+        sqftScore = Math.min(attomData.sqft / 500, 5);
+    }
+    subscores['Sqft'] = sqftScore;
+    
+    // 6. Zoning/Use: 5%
+    let zoningScore = 0;
+    if (attomData.zoning && /res/i.test(attomData.zoning)) zoningScore = 5;
+    else if (attomData.zoning) zoningScore = 2;
+    subscores['Zoning'] = zoningScore;
+    
+    // 7. Owner Occupancy: 5%
+    let ownerScore = 0;
+    if (attomData.ownership && !/LLC|Inc|Corp|Trust/i.test(attomData.ownership)) ownerScore = 5;
+    else if (attomData.ownership) ownerScore = 2;
+    subscores['Ownership'] = ownerScore;
+    
+    // 8. Days on Market (DOM): 10%
+    let domScore = 0;
+    if (attomData.daysOnMarket) {
+        if (attomData.daysOnMarket >= 10 && attomData.daysOnMarket <= 45) domScore = 10;
+        else if (attomData.daysOnMarket < 10) domScore = 5;
+        else domScore = 2;
+    }
+    subscores['DOM'] = domScore;
+    
+    // 9. Price Drop %: 10%
+    let priceDropScore = 0;
+    if (attomData.priceDropPercent) {
+        if (attomData.priceDropPercent >= 5) priceDropScore = 10;
+        else if (attomData.priceDropPercent >= 2) priceDropScore = 7;
+        else priceDropScore = 3;
+    }
+    subscores['PriceDrop'] = priceDropScore;
+    
+    // 10. Smart Scout Zip Score: 10%
+    let zipScore = 0;
+    if (options?.zipScore !== undefined) zipScore = options.zipScore;
+    else if (attomData.smartScoutZipScore !== undefined) zipScore = attomData.smartScoutZipScore;
+    subscores['ZipScore'] = Math.round(zipScore / 10); // Scale 0-100 to 0-10
+    
+    // 11. School Quality: 5%
+    let schoolScore = 0;
+    if (options?.schoolScore !== undefined) schoolScore = options.schoolScore;
+    else if (attomData.schoolScore !== undefined) schoolScore = attomData.schoolScore;
+    subscores['School'] = Math.round(schoolScore / 2); // Scale 0-10 to 0-5
+    
+    // 12. Risk Layers (Flood, Fire, Affordability): 5%
+    let riskScore = 5;
+    if (options?.riskLayers) {
+        if (options.riskLayers.flood && options.riskLayers.flood > 7) riskScore -= 2;
+        if (options.riskLayers.fire && options.riskLayers.fire > 7) riskScore -= 2;
+        if (options.riskLayers.affordability && options.riskLayers.affordability < 3) riskScore -= 1;
+    }
+    subscores['Risk'] = riskScore;
+    
+    // Normalize all scores to 0-10 scale for radar chart visibility
+    Object.keys(subscores).forEach(key => {
+        if (subscores[key] > 10) {
+            subscores[key] = Math.round(subscores[key] / 2.5); // Scale 0-25 to 0-10
+        }
+    });
+    
+    return subscores;
 } 

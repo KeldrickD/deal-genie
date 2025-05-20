@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -11,6 +11,8 @@ import { toast } from 'sonner';
 import { useAuthContext } from '@/components/AuthProvider';
 import { Database } from '@/types/supabase';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { getPropertyDetails } from '@/lib/attom';
+import { calculateGenieDealScore } from '@/app/ai/actions';
 
 type Lead = {
   address: string;
@@ -35,6 +37,7 @@ export default function LeadImporter() {
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [parsedLeads, setParsedLeads] = useState<Lead[]>([]);
+  const [enrichedLeads, setEnrichedLeads] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Manual input states
@@ -265,6 +268,19 @@ export default function LeadImporter() {
     setUploadSuccess(false);
   };
 
+  useEffect(() => {
+    Promise.all(
+      parsedLeads.map(async (lead) => {
+        try {
+          const attomData = await getPropertyDetails(lead.address);
+          return { ...lead, attomData: attomData?.property || attomData };
+        } catch {
+          return lead;
+        }
+      })
+    ).then(setEnrichedLeads);
+  }, [parsedLeads]);
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -351,22 +367,24 @@ export default function LeadImporter() {
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">State</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Zip</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-blue-600 uppercase tracking-wider">Deal Score</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {parsedLeads.slice(0, 5).map((lead, index) => (
+                  {enrichedLeads.slice(0, 5).map((lead, index) => (
                     <tr key={index}>
                       <td className="px-3 py-2 text-xs">{lead.address}</td>
                       <td className="px-3 py-2 text-xs">{lead.city}</td>
                       <td className="px-3 py-2 text-xs">{lead.state}</td>
                       <td className="px-3 py-2 text-xs">{lead.zip}</td>
                       <td className="px-3 py-2 text-xs">{lead.price ? `$${lead.price.toLocaleString()}` : '-'}</td>
+                      <td className="px-3 py-2 text-xs font-bold text-blue-600">{lead.attomData ? calculateGenieDealScore(lead.attomData) : '-'}</td>
                     </tr>
                   ))}
-                  {parsedLeads.length > 5 && (
+                  {enrichedLeads.length > 5 && (
                     <tr>
                       <td colSpan={5} className="px-3 py-2 text-xs text-center text-gray-500">
-                        ... and {parsedLeads.length - 5} more leads
+                        ... and {enrichedLeads.length - 5} more leads
                       </td>
                     </tr>
                   )}

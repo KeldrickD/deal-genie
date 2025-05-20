@@ -8,9 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, FileText, Upload, ListFilter, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { analyzeBatchProperties } from '@/app/ai/actions';
+import { analyzeBatchProperties, calculateGenieDealScore } from '@/app/ai/actions';
 import { StructuredAnalysis } from '@/app/ai/actions';
 import { formatCurrency } from '@/lib/utils';
+import PropertyHistoryTimeline from './PropertyHistoryTimeline';
 
 // Helper function to parse CSV content
 function parseCSV(content: string): string[] {
@@ -47,6 +48,7 @@ function parseCSV(content: string): string[] {
 interface BatchAnalysisResult {
   address: string;
   analysis: StructuredAnalysis | null;
+  attomData?: any;
 }
 
 export default function BatchAnalyzer() {

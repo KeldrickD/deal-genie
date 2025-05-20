@@ -66,8 +66,12 @@ export async function checkUsageLimit(
       return { hasReachedLimit: true, currentUsage: 0, limit: 0 };
     }
     
-    // Get the user's subscription tier
+    // Get the user's subscription tier and admin status
     const userProfile = await getUserProfile(userId);
+    // If admin, always allow unlimited access
+    if (userProfile && userProfile.is_admin) {
+      return { hasReachedLimit: false, currentUsage: 0, limit: Infinity };
+    }
     // Default to 'free' tier if profile doesn't exist or has no tier
     const tier = (userProfile && 
       typeof userProfile === 'object' && 

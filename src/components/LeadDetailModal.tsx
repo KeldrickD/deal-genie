@@ -29,6 +29,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, MapPin, Calendar, DollarSign, ExternalLink, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { calculateGenieDealScore, getGenieDealScoreBreakdown } from '@/app/ai/actions';
+import PropertyHistoryTimeline from './PropertyHistoryTimeline';
+import FeedbackWidget from './FeedbackWidget';
+import RadarChart from './RadarChart';
+import Sparkline from './Sparkline';
 
 type CrmLead = {
   id: string;
@@ -44,6 +49,7 @@ type CrmLead = {
   lead_notes?: string;
   created_at: string;
   listing_url?: string;
+  attomData?: any;
 };
 
 interface LeadDetailModalProps {
@@ -208,7 +214,76 @@ export default function LeadDetailModal({
                       </span>
                     </div>
                   </div>
+                  
+                  {lead.attomData && (
+                    <div>
+                      <div className="text-sm text-blue-600 mb-1 font-bold">Genie Deal Score™</div>
+                      <div className="font-bold text-blue-600 text-lg">{calculateGenieDealScore(lead.attomData)}/100</div>
+                      
+                      {/* Deal Score Gradient Bar */}
+                      {(() => {
+                        const dealScore = calculateGenieDealScore(lead.attomData);
+                        let color = 'bg-red-500';
+                        let label = 'Poor';
+                        if (dealScore >= 81) { color = 'bg-green-500'; label = 'Great'; }
+                        else if (dealScore >= 61) { color = 'bg-yellow-500'; label = 'Average'; }
+                        return (
+                          <>
+                            <div className="w-full bg-gray-200 rounded-full h-2 relative my-2">
+                              <div 
+                                className={`h-2 rounded-full transition-all duration-300 ${color}`}
+                                style={{ width: `${dealScore}%` }}
+                              ></div>
+                              <div className="absolute top-0 left-0 h-2 w-full rounded-full pointer-events-none" style={{ background: 'linear-gradient(90deg, #ef4444 0%, #f59e42 60%, #22c55e 100%)', opacity: 0.3 }}></div>
+                            </div>
+                            <div className="text-xs font-semibold mb-2 text-right {color}">{label}</div>
+                          </>
+                        );
+                      })()}
+                      
+                      {/* Visualization row */}
+                      <div className="grid grid-cols-2 gap-2 my-3">
+                        {/* Radar chart for score breakdown */}
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 mb-1">Score Breakdown</h5>
+                          <RadarChart 
+                            data={getGenieDealScoreBreakdown(lead.attomData)} 
+                            size="sm" 
+                          />
+                        </div>
+                        
+                        {/* Sparkline for equity trend */}
+                        <div>
+                          <h5 className="text-xs font-medium text-gray-500 mb-1">
+                            {typeof lead.attomData.equity === 'number' ? 'Equity Trend' : 'Value Trend'}
+                          </h5>
+                          <div className="flex justify-center items-center h-full">
+                            <Sparkline 
+                              data={lead.attomData.equityHistory || [
+                                (lead.price || 0) * 0.9, 
+                                (lead.price || 0) * 0.92, 
+                                (lead.price || 0) * 0.95, 
+                                (lead.price || 0) * 0.98, 
+                                (lead.price || 0)
+                              ]}
+                              height={50} 
+                              width={100} 
+                              showReferenceLine={true}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Feedback Widget */}
+                      <FeedbackWidget propertyId={lead.id} />
+                    </div>
+                  )}
                 </div>
+                
+                {/* Property History Timeline */}
+                {lead.attomData?.address && (
+                  <PropertyHistoryTimeline address={lead.attomData.address} />
+                )}
                 
                 {lead.listing_url && (
                   <div className="pt-2">

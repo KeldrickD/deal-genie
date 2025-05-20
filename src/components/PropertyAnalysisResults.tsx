@@ -4,6 +4,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { InfoIcon, AlertTriangle, CheckCircle, DollarSign, Home, TrendingUp, XCircle, Clock } from 'lucide-react';
+import PropertyHistoryTimeline from './PropertyHistoryTimeline';
+import { calculateGenieDealScore, getGenieDealScoreBreakdown } from '@/app/ai/actions';
+import FeedbackWidget from './FeedbackWidget';
+import RadarChart from './RadarChart';
+import Sparkline from './Sparkline';
 
 interface RentalData {
   rent: number;
@@ -25,6 +30,20 @@ interface AnalysisResponse {
     rental?: string;
     comps?: string;
     analysis?: string;
+  };
+  attomData?: {
+    address: string;
+    bedrooms: number;
+    bathrooms: number;
+    sqft: number;
+    yearBuilt: number;
+    lastSaleAmount: number;
+    lotSize: string;
+    type: string;
+    zoning?: string;
+    ownership?: string;
+    equity?: number;
+    equityHistory?: number[];
   };
 }
 
@@ -64,6 +83,80 @@ export default function PropertyAnalysisResults({
 
   return (
     <div className="space-y-6 my-6">
+      {/* Attom Property Details Section */}
+      {data.attomData && (
+        <>
+          <div className="mb-4 p-4 border rounded bg-gray-50">
+            <h3 className="font-bold mb-2">Property Details (Attom)</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <div><b>Address:</b> {data.attomData.address}</div>
+              <div><b>Beds:</b> {data.attomData.bedrooms}</div>
+              <div><b>Baths:</b> {data.attomData.bathrooms}</div>
+              <div><b>Sqft:</b> {data.attomData.sqft}</div>
+              <div><b>Year Built:</b> {data.attomData.yearBuilt}</div>
+              <div><b>Last Sale Price:</b> {data.attomData.lastSaleAmount}</div>
+              <div><b>Lot Size:</b> {data.attomData.lotSize}</div>
+              <div><b>Type:</b> {data.attomData.type}</div>
+              {data.attomData.zoning && <div><b>Zoning:</b> {data.attomData.zoning}</div>}
+              {data.attomData.ownership && <div><b>Ownership:</b> {data.attomData.ownership}</div>}
+              {typeof data.attomData.equity === 'number' && (
+                <div>
+                  <b>Equity:</b> ${data.attomData.equity.toLocaleString()}
+                  {/* Add Sparkline for equity trend */}
+                  {data.attomData.equityHistory ? (
+                    <Sparkline 
+                      data={data.attomData.equityHistory} 
+                      height={20} 
+                      width={80}
+                      label="Trend:"
+                    />
+                  ) : (
+                    <Sparkline 
+                      data={[data.attomData.equity * 0.93, data.attomData.equity * 0.95, data.attomData.equity * 0.98, data.attomData.equity]} 
+                      height={20} 
+                      width={80}
+                      label="Trend:"
+                    />
+                  )}
+                </div>
+              )}
+              <div><b>Genie Deal Score™:</b> <span className="font-bold text-blue-600">{calculateGenieDealScore(data.attomData)}</span>/100</div>
+            </div>
+            {/* Deal Score Gradient Bar */}
+            {(() => {
+              const dealScore = calculateGenieDealScore(data.attomData);
+              let color = 'bg-red-500';
+              let label = 'Poor';
+              if (dealScore >= 81) { color = 'bg-green-500'; label = 'Great'; }
+              else if (dealScore >= 61) { color = 'bg-yellow-500'; label = 'Average'; }
+              return (
+                <>
+                  <div className="w-full bg-gray-200 rounded-full h-2 relative my-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${color}`}
+                      style={{ width: `${dealScore}%` }}
+                    ></div>
+                    <div className="absolute top-0 left-0 h-2 w-full rounded-full pointer-events-none" style={{ background: 'linear-gradient(90deg, #ef4444 0%, #f59e42 60%, #22c55e 100%)', opacity: 0.3 }}></div>
+                  </div>
+                  <div className="text-xs font-semibold mb-2 text-right {color}">{label}</div>
+                </>
+              );
+            })()}
+            {/* Radar Chart */}
+            <div className="mt-4">
+              <h4 className="text-sm font-medium mb-2">Deal Score Breakdown</h4>
+              <RadarChart 
+                data={getGenieDealScoreBreakdown(data.attomData)} 
+                size="sm"
+              />
+            </div>
+            {/* Feedback Widget */}
+            <FeedbackWidget propertyId={('id' in data.attomData && data.attomData.id) ? String(data.attomData.id) : String(address)} />
+          </div>
+          <PropertyHistoryTimeline address={data.attomData.address || address} />
+        </>
+      )}
+
       {/* Show error alerts if any */}
       {data.errors && (Object.keys(data.errors).length > 0) && (
         <Alert>
