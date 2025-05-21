@@ -22,7 +22,7 @@ import {
   Shield,
   ArrowUpRight
 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/components/AuthProvider";
 import { ReactNode } from "react";
@@ -44,6 +44,8 @@ function HomePageRedirect({ children }: { children: ReactNode }) {
 }
 
 export default function HomePage() {
+  const [pricingInterval, setPricingInterval] = useState('monthly');
+
   return (
     <HomePageRedirect>
       <div className="flex flex-col min-h-screen">
@@ -622,8 +624,18 @@ export default function HomePage() {
             
             <div className="flex justify-center mb-10">
               <div className="inline-flex p-1 bg-gray-100 rounded-lg">
-                <button className="py-2 px-6 rounded-md bg-white shadow-sm font-medium">Monthly</button>
-                <button className="py-2 px-6 rounded-md text-gray-600 font-medium">Annual (Save 20%)</button>
+                <button 
+                  className={`py-2 px-6 rounded-md font-medium transition-colors ${pricingInterval === 'monthly' ? 'bg-white shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                  onClick={() => setPricingInterval('monthly')}
+                >
+                  Monthly
+                </button>
+                <button 
+                  className={`py-2 px-6 rounded-md font-medium transition-colors ${pricingInterval === 'annual' ? 'bg-white shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}
+                  onClick={() => setPricingInterval('annual')}
+                >
+                  Annual (Save 20%)
+                </button>
               </div>
             </div>
             
@@ -669,9 +681,12 @@ export default function HomePage() {
                 <div className="mb-6">
                   <h3 className="text-xl font-bold mb-2">Pro</h3>
                   <div className="flex items-end gap-1 mb-1">
-                    <span className="text-3xl font-bold">$99</span>
-                    <span className="text-gray-500 mb-1">/month</span>
+                    <span className="text-3xl font-bold">{pricingInterval === 'monthly' ? '$99' : '$79'}</span>
+                    <span className="text-gray-500 mb-1">/{pricingInterval === 'monthly' ? 'month' : 'month'}</span>
                   </div>
+                  {pricingInterval === 'annual' && (
+                    <p className="text-xs text-green-600 font-medium mb-1">$948 billed annually (save $240)</p>
+                  )}
                   <p className="text-sm text-gray-500">Full access for individuals</p>
                 </div>
                 
@@ -715,9 +730,12 @@ export default function HomePage() {
                 <div className="mb-6">
                   <h3 className="text-xl font-bold mb-2">Team</h3>
                   <div className="flex items-end gap-1 mb-1">
-                    <span className="text-3xl font-bold">$249</span>
-                    <span className="text-gray-500 mb-1">/month</span>
+                    <span className="text-3xl font-bold">{pricingInterval === 'monthly' ? '$249' : '$199'}</span>
+                    <span className="text-gray-500 mb-1">/{pricingInterval === 'monthly' ? 'month' : 'month'}</span>
                   </div>
+                  {pricingInterval === 'annual' && (
+                    <p className="text-xs text-green-600 font-medium mb-1">$2,388 billed annually (save $600)</p>
+                  )}
                   <p className="text-sm text-gray-500">For teams of 3+ members</p>
                 </div>
                 
