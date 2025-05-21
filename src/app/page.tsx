@@ -86,7 +86,7 @@ export default function HomePage() {
                 <div className="bg-white rounded-2xl shadow-xl p-2 md:p-3 border border-indigo-100 relative">
                   <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-xs px-4 py-1 rounded-full font-medium">Deal Genie 2.0</div>
                   <Image 
-                    src="/globe.svg" 
+                    src="/Deal-Genie-Dashboard.png" 
                     alt="Deal Genie Dashboard" 
                     width={1200} 
                     height={675} 
@@ -263,9 +263,13 @@ export default function HomePage() {
                   </Button>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-6 flex justify-center">
-                  <svg viewBox="0 0 24 24" className="h-48 w-48 text-indigo-200" fill="currentColor">
-                    <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
-                  </svg>
+                  <Image 
+                    src="/Deal-Genie-Dashboard.png" 
+                    alt="Bulk Analysis Dashboard" 
+                    width={192} 
+                    height={192} 
+                    className="rounded-lg object-cover"
+                  />
                 </div>
               </div>
             </div>
