@@ -65,7 +65,7 @@ export default function HomePage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 mb-8">
                   <Button size="lg" asChild className="bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600 px-8">
-                    <Link href="/signup">Start Free Trial</Link>
+                    <Link href={`/signup?interval=${pricingInterval}`}>Start Free Trial</Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild className="border-indigo-200 hover:bg-indigo-50">
                     <Link href="/demo" className="flex items-center gap-2">
@@ -720,7 +720,7 @@ export default function HomePage() {
                 </div>
                 
                 <Button asChild className="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-700 hover:to-indigo-600">
-                  <Link href="/signup?plan=pro">Start 7-Day Free Trial</Link>
+                  <Link href={`/signup?plan=pro&interval=${pricingInterval}`}>Start 7-Day Free Trial</Link>
                 </Button>
                 <p className="text-xs text-center text-gray-500 mt-3">No credit card required to try</p>
               </div>
@@ -765,7 +765,7 @@ export default function HomePage() {
                 </div>
                 
                 <Button asChild variant="outline" className="w-full border-indigo-200 hover:bg-indigo-50">
-                  <Link href="/signup?plan=team">Contact Sales</Link>
+                  <Link href={`/signup?plan=team&interval=${pricingInterval}`}>Contact Sales</Link>
                 </Button>
               </div>
             </div>
@@ -886,7 +886,7 @@ export default function HomePage() {
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4">
                   <Button size="lg" variant="secondary" asChild className="px-8 bg-white hover:bg-gray-100 text-indigo-700">
-                    <Link href="/signup">Get Started Free</Link>
+                    <Link href={`/signup?interval=${pricingInterval}`}>Get Started Free</Link>
                   </Button>
                   <Button size="lg" variant="outline" asChild className="px-8 text-white border-white hover:bg-white/10">
                     <Link href="/demo">Watch Demo</Link>
