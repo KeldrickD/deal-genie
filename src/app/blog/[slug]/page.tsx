@@ -152,6 +152,9 @@ export default function BlogPost({ params }: { params: { slug: string } }) {
     notFound();
   }
   
+  // Check if this is the ARV blog post to show the header image
+  const showHeaderImage = params.slug === "how-to-instantly-calculate-arv-mao-roi";
+  
   return (
     <div className="min-h-screen pb-20">
       {/* Back to Blog Link */}
@@ -177,7 +180,18 @@ export default function BlogPost({ params }: { params: { slug: string } }) {
       {/* Article Header */}
       <article className="max-w-3xl mx-auto pt-8 px-4">
         <h1 className="text-3xl md:text-4xl font-bold mb-3">{post.title}</h1>
-        <div className="text-gray-500 mb-8">Published on {post.publishedAt}</div>
+        <div className="text-gray-500 mb-4">Published on {post.publishedAt}</div>
+        
+        {/* Header Image for ARV post */}
+        {showHeaderImage && (
+          <div className="mb-8">
+            <img 
+              src="/blog/arv-mao-roi-calculator.svg" 
+              alt="How to Calculate ARV, MAO, and ROI Without Spreadsheets" 
+              className="w-full rounded-lg shadow-md"
+            />
+          </div>
+        )}
         
         {/* Article Content */}
         <div 

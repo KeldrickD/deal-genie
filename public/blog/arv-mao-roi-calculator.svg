@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <!-- Background with gradient -->
+  <rect width="1200" height="630" fill="url(#paint0_linear)" />
+  
+  <!-- Title text -->
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="90" font-weight="bold" fill="white">How to Instantly</text>
+  <text x="100" y="260" font-family="Arial, sans-serif" font-size="90" font-weight="bold" fill="white">Calculate ARV,</text>
+  <text x="100" y="360" font-family="Arial, sans-serif" font-size="90" font-weight="bold" fill="white">MAO, and ROI</text>
+  <text x="100" y="460" font-family="Arial, sans-serif" font-size="70" font-weight="bold" fill="white">Without Spreadsheets</text>
+  
+  <!-- Calculator UI -->
+  <rect x="860" y="120" width="300" height="300" rx="20" fill="white" stroke="#6366F1" stroke-width="3" />
+  <rect x="860" y="120" width="300" height="80" rx="20" fill="#6366F1" />
+  
+  <!-- Calculator elements -->
+  <text x="890" y="180" font-family="Arial, sans-serif" font-size="50" font-weight="bold" fill="white">$</text>
+  <rect x="960" y="140" width="180" height="40" rx="5" fill="white" />
+  
+  <!-- Calculator buttons -->
+  <rect x="890" y="220" width="70" height="70" rx="10" fill="#6366F1" />
+  <text x="920" y="270" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">+</text>
+  
+  <rect x="970" y="220" width="70" height="70" rx="10" fill="#6366F1" />
+  <text x="1000" y="270" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">-</text>
+  
+  <rect x="1050" y="220" width="70" height="70" rx="10" fill="#6366F1" />
+  <text x="1080" y="270" font-family="Arial, sans-serif" font-size="40" font-weight="bold" fill="white">×</text>
+  
+  <!-- Genie illustration (simplified) -->
+  <path d="M750 550 Q800 450 850 550 Q750 600 750 550 Z" fill="#6366F1" />
+  <ellipse cx="800" cy="400" rx="80" ry="100" fill="#6366F1" />
+  <path d="M720 420 Q800 480 880 420" stroke="#4338CA" stroke-width="5" fill="none" />
+  <circle cx="770" cy="370" r="10" fill="#4338CA" />
+  <circle cx="830" cy="370" r="10" fill="#4338CA" />
+  
+  <!-- Genie accessories -->
+  <path d="M800 300 Q830 280 850 300" fill="#FDE68A" stroke="#F59E0B" stroke-width="3" />
+  <ellipse cx="800" cy="280" rx="20" ry="10" fill="#F59E0B" />
+  
+  <!-- Genie lamp -->
+  <path d="M1000 700 Q1100 650 1150 700 Q1120 720 1000 700 Z" fill="#F59E0B" />
+  <path d="M1050 700 Q1080 650 1110 700" stroke="#F59E0B" stroke-width="5" fill="none" />
+  
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="paint0_linear" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1" />
+      <stop offset="1" stop-color="#4338CA" />
+    </linearGradient>
+  </defs>
+</svg> 
