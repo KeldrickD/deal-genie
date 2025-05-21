@@ -12,7 +12,8 @@
     "test": "echo \"No tests specified\" && exit 0",
     "prepare": "husky install",
     "refresh-leads": "node scripts/refresh-leads.js --once",
-    "scheduler": "node scripts/refresh-leads.js"
+    "scheduler": "node scripts/refresh-leads.js",
+    "upgrade-admin": "node src/scripts/upgrade-admin.js"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.18.0",
