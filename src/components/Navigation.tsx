@@ -7,6 +7,7 @@ import { useAuthContext } from '@/components/AuthProvider';
 import { useFeatureFlags } from '@/lib/featureFlags';
 import { Button } from "@/components/ui/button";
 import { SITE } from '@/lib/config';
+import Image from 'next/image';
 
 export default function Navigation() {
   const router = useRouter();
