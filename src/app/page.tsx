@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -20,14 +22,12 @@ import {
   Shield,
   ArrowUpRight
 } from "lucide-react";
-
-// HomePageRedirect: Client component to handle auth redirects
-"use client";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthContext } from "@/components/AuthProvider";
 import { ReactNode } from "react";
 
+// HomePageRedirect: Client component to handle auth redirects
 function HomePageRedirect({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, loading } = useAuthContext();
