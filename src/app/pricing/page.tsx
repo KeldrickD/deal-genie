@@ -120,12 +120,15 @@ export default function PricingPage() {
 
         <PricingCard
           plan="Team"
-          price="Custom"
+          price="$249"
+          pricePeriod="/month"
+          priceYearly="$2,388"
+          yearlyText="(save $600/year)"
           description="For brokerages and investment firms"
           features={[
             "Everything in Pro plan",
             "Team collaboration tools",
-            "Custom integrations",
+            "3-5 team member accounts",
             "Bulk analysis tools",
             "Dedicated account manager",
             "API access",
@@ -133,6 +136,7 @@ export default function PricingPage() {
           ]}
           buttonText="Contact Sales"
           buttonVariant="secondary"
+          showBilling={true}
         />
       </div>
 
