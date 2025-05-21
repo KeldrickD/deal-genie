@@ -37,6 +37,28 @@ const posts = [
 export const metadata = {
   title: 'Real Estate Investing Blog | Deal Genie',
   description: 'Expert tips, strategies and insights for real estate investors looking to analyze deals faster and close more properties.',
+  openGraph: {
+    title: 'Real Estate Investing Blog | Deal Genie',
+    description: 'Expert tips, strategies and insights for real estate investors looking to analyze deals faster and close more properties.',
+    url: 'https://deal-genie.vercel.app/blog',
+    siteName: 'Deal Genie',
+    images: [
+      {
+        url: 'https://deal-genie.vercel.app/blog/arv-mao-roi-calculator.svg',
+        width: 1200,
+        height: 630,
+        alt: 'Deal Genie Blog',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Real Estate Investing Blog | Deal Genie',
+    description: 'Expert tips, strategies and insights for real estate investors looking to analyze deals faster and close more properties.',
+    images: ['https://deal-genie.vercel.app/blog/arv-mao-roi-calculator.svg'],
+  },
 };
 
 export default function BlogPage() {
@@ -53,14 +75,25 @@ export default function BlogPage() {
       {/* Featured Post */}
       <article className="max-w-5xl mx-auto mb-12 px-4">
         <div className="bg-indigo-50 p-6 rounded-xl hover:shadow-lg transition">
-          <p className="text-sm text-indigo-600 font-semibold uppercase mb-2">Featured</p>
-          <h2 className="text-2xl font-bold mb-1">How to Instantly Calculate ARV, MAO, and ROI</h2>
-          <p className="text-gray-700 mb-3">
-            Learn how Deal Genie replaces spreadsheets with instant, accurate analysis.
-          </p>
-          <Link href="/blog/how-to-instantly-calculate-arv-mao-roi" className="text-indigo-600 font-medium hover:underline">
-            Read more →
-          </Link>
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="md:flex-1">
+              <p className="text-sm text-indigo-600 font-semibold uppercase mb-2">Featured</p>
+              <h2 className="text-2xl font-bold mb-1">How to Instantly Calculate ARV, MAO, and ROI</h2>
+              <p className="text-gray-700 mb-3">
+                Learn how Deal Genie replaces spreadsheets with instant, accurate analysis.
+              </p>
+              <Link href="/blog/how-to-instantly-calculate-arv-mao-roi" className="text-indigo-600 font-medium hover:underline">
+                Read more →
+              </Link>
+            </div>
+            <div className="md:w-1/3">
+              <img 
+                src="/blog/arv-mao-roi-calculator.svg" 
+                alt="How to Calculate ARV, MAO, and ROI" 
+                className="w-full h-full object-cover rounded-lg shadow-md"
+              />
+            </div>
+          </div>
         </div>
       </article>
       

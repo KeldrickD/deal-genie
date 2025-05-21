@@ -138,9 +138,39 @@ export async function generateMetadata({ params }: { params: { slug: string } })
     };
   }
   
+  // Base URL for absolute URLs
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://deal-genie.vercel.app';
+  
+  // Check if this is the ARV blog post to add special image metadata
+  const isArvPost = params.slug === "how-to-instantly-calculate-arv-mao-roi";
+  const imageUrl = isArvPost 
+    ? `${baseUrl}/blog/arv-mao-roi-calculator.svg` 
+    : `${baseUrl}/globe.svg`;
+  
   return {
     title: `${post.title} | Deal Genie Blog`,
     description: post.title,
+    openGraph: {
+      title: post.title,
+      description: post.title,
+      type: 'article',
+      publishedTime: post.publishedAt,
+      url: `${baseUrl}/blog/${params.slug}`,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: post.title,
+        },
+      ],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: post.title,
+      description: post.title,
+      images: [imageUrl],
+    },
   };
 }
 
