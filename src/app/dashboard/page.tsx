@@ -835,7 +835,7 @@ export default function Dashboard() {
                                 <div 
                                   key={deal.id} 
                                   className="p-4 border rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
-                                  onClick={() => setEditingDealId(deal.id)}
+                                  onClick={() => router.push(`/deals/${deal.id}`)}
                                 >
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                                     <div className="mb-2 sm:mb-0">
@@ -865,6 +865,29 @@ export default function Dashboard() {
                                       )}
                                     </div>
                                   )}
+                                  {/* Action buttons */}
+                                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end space-x-2">
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        router.push(`/deals/${deal.id}`);
+                                      }}
+                                    >
+                                      View Analysis
+                                    </Button>
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingDealId(deal.id);
+                                      }}
+                                    >
+                                      Edit
+                                    </Button>
+                                  </div>
                                 </div>
                               ))
                             ) : (
