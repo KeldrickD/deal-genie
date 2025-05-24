@@ -8,6 +8,8 @@ import { useFeatureFlags } from '@/lib/featureFlags';
 import { Button } from "@/components/ui/button";
 import { SITE } from '@/lib/config';
 import Image from 'next/image';
+import { useTheme } from 'next-themes';
+import { Sun, Moon } from 'lucide-react';
 
 export default function Navigation() {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function Navigation() {
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [isRedirecting, setIsRedirecting] = useState(false);
   const { enableGenieNet } = useFeatureFlags();
+  const { theme, setTheme } = useTheme();
 
   // Handle redirects based on auth state
   useEffect(() => {
@@ -78,6 +81,10 @@ export default function Navigation() {
 
   const isActive = (path: string) => pathname === path || pathname?.startsWith(`${path}/`);
 
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
+
   return (
     <nav className="bg-white shadow-sm py-4">
       <div className="container mx-auto px-4">
@@ -110,6 +117,14 @@ export default function Navigation() {
                     </span>
                   </Link>
                 }
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  aria-label="Toggle theme"
+                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
                 <div className="relative">
                   <button
                     onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
@@ -155,6 +170,15 @@ export default function Navigation() {
                 <Link href="/pricing" className={`text-gray-600 hover:text-indigo-600 ${isActive('/pricing') ? 'text-indigo-600 font-medium' : ''}`}>Pricing</Link>
                 <Link href="/about" className={`text-gray-600 hover:text-indigo-600 ${isActive('/about') ? 'text-indigo-600 font-medium' : ''}`}>About</Link>
                 
+                <button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+                  aria-label="Toggle theme"
+                  title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+                </button>
+                
                 {!authLoading && (
                   <div className="flex items-center space-x-4">
                     <Link href="/login" className="text-gray-600 hover:text-indigo-600 text-sm">Login</Link>
@@ -168,7 +192,16 @@ export default function Navigation() {
           </div>
 
           {/* Mobile Menu Button */}
-          <div className="md:hidden">
+          <div className="md:hidden flex items-center space-x-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-md bg-gray-100 hover:bg-gray-200 text-gray-700"
+              aria-label="Toggle theme"
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="text-gray-500 hover:text-gray-600 focus:outline-none"

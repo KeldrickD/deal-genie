@@ -50,11 +50,11 @@ export default function RootLayout({
       />
       <body className={cn(
         "min-h-screen bg-background font-sans antialiased",
-        inter.variable
+        inter.className
       )}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
+          defaultTheme="light"
           enableSystem
           disableTransitionOnChange
         >
@@ -62,7 +62,7 @@ export default function RootLayout({
             <Navigation />
             {children}
             <Toaster />
-            <FeedbackWidget />
+            <FeedbackWidget propertyId="global-feedback" />
           </AuthProvider>
         </ThemeProvider>
       </body>
